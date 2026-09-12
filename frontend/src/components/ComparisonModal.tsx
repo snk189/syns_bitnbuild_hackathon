@@ -14,7 +14,6 @@ import {
   RefreshCw,
   Sparkles,
   Bot,
-  FileText,
   Copy,
   Check,
 } from "lucide-react";
@@ -32,6 +31,7 @@ import {
   Area,
 } from "recharts";
 import { ComparisonData, ExecutiveReportData } from "../types";
+import ReactMarkdown from "react-markdown";
 
 interface ComparisonModalProps {
   isOpen: boolean;
@@ -348,8 +348,33 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
                     <span className="text-sm font-semibold">Generating multi-agent strategic audit with OpenAI...</span>
                   </div>
                 ) : (
-                  <div className="text-xs text-slate-300 space-y-3 whitespace-pre-line leading-relaxed max-h-[360px] overflow-y-auto pr-2 font-mono bg-slate-900/40 p-4 rounded-xl border border-slate-800">
-                    {reportData?.executive_report || "Click Regenerate to analyze benchmark results."}
+                  <div className="text-xs text-slate-300 leading-relaxed max-h-[360px] overflow-y-auto pr-2 bg-slate-900/40 p-4 rounded-xl border border-slate-800">
+                    {reportData?.executive_report ? (
+                      <ReactMarkdown
+                        components={{
+                          h1: ({ children }) => <h1 className="text-base font-bold text-white mt-3 mb-2 border-b border-slate-700/60 pb-1">{children}</h1>,
+                          h2: ({ children }) => <h2 className="text-sm font-bold text-cyan-300 mt-3 mb-1.5">{children}</h2>,
+                          h3: ({ children }) => <h3 className="text-xs font-bold text-emerald-300 mt-2 mb-1">{children}</h3>,
+                          p: ({ children }) => <p className="mb-2 text-slate-300">{children}</p>,
+                          strong: ({ children }) => <strong className="font-bold text-white">{children}</strong>,
+                          ul: ({ children }) => <ul className="list-disc list-inside space-y-1 my-2 pl-1">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal list-inside space-y-1 my-2 pl-1">{children}</ol>,
+                          li: ({ children }) => <li className="text-slate-200">{children}</li>,
+                          table: ({ children }) => (
+                            <div className="overflow-x-auto my-3 rounded-lg border border-slate-800">
+                              <table className="min-w-full text-xs text-slate-200">{children}</table>
+                            </div>
+                          ),
+                          th: ({ children }) => <th className="bg-slate-950 p-2 text-left font-bold text-cyan-300 border-b border-slate-800">{children}</th>,
+                          td: ({ children }) => <td className="p-2 border-b border-slate-800/60">{children}</td>,
+                          code: ({ children }) => <code className="px-1 py-0.5 rounded bg-slate-950 text-cyan-300 font-mono text-[11px]">{children}</code>
+                        }}
+                      >
+                        {reportData.executive_report}
+                      </ReactMarkdown>
+                    ) : (
+                      <span className="text-slate-500">Click Regenerate to analyze benchmark results.</span>
+                    )}
                   </div>
                 )}
               </div>

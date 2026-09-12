@@ -7,10 +7,16 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Try to load .env from backend directory or project root
-env_path = Path(__file__).resolve().parent.parent.parent / ".env"
-if env_path.exists():
+root_dir = Path(__file__).resolve().parent.parent.parent.parent
+backend_dir = Path(__file__).resolve().parent.parent.parent
+if (root_dir / ".env").exists():
+    env_path = root_dir / ".env"
+    load_dotenv(dotenv_path=env_path)
+elif (backend_dir / ".env").exists():
+    env_path = backend_dir / ".env"
     load_dotenv(dotenv_path=env_path)
 else:
+    env_path = root_dir / ".env"
     load_dotenv()
 
 logger = logging.getLogger("gridmind.llm")

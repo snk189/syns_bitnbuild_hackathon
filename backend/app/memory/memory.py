@@ -13,6 +13,9 @@ class AgentMemory:
     def __init__(self, db_path: str = "gridmind_memory.db"):
         self.db_path = db_path
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        self.conn.execute("PRAGMA journal_mode = WAL")
+        self.conn.execute("PRAGMA synchronous = OFF")
+        self.conn.execute("PRAGMA temp_store = MEMORY")
         self._init_db()
 
     def _init_db(self):

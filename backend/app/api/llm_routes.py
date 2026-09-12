@@ -83,29 +83,33 @@ def explain_agent_decision(req: ExplainRequest):
     return res
 
 
-@router.post("/executive-summary")
-def generate_executive_report(req: ExecutiveSummaryRequest):
+@router.api_route("/executive-summary", methods=["GET", "POST"])
+def generate_executive_report(req: Optional[ExecutiveSummaryRequest] = None, scenario: Optional[str] = None):
     """
     Generate an Executive Strategic Audit comparing Mode A (Baseline) vs Mode B (GridMind)
     with deep LLM-powered engineering and economic synthesis.
     """
-    from .routes import global_sim
+    from .routes import global_sim, comparison_cache
 
-    sc_name = req.scenario or global_sim.scenario_name
+    sc_name = (req.scenario if req else None) or scenario or global_sim.scenario_name
 
-    # 1. Run Baseline
-    baseline_runner = BaselineSimulator(sc_name)
-    base_metrics, base_states = baseline_runner.run_full_simulation()
+    # Check cached comparison if available to avoid redundant 96-step simulation
+    if sc_name in comparison_cache:
+        comp = comparison_cache[sc_name]["comparison"]
+    else:
+        # 1. Run Baseline
+        baseline_runner = BaselineSimulator(sc_name)
+        base_metrics, base_states = baseline_runner.run_full_simulation()
 
-    # 2. Run GridMind
-    gridmind_runner = MicrogridSimulator(sc_name)
-    gridmind_orch = MultiAgentOrchestrator(gridmind_runner)
-    for _ in range(gridmind_runner.total_steps):
-        gridmind_orch.step()
-    gm_metrics = gridmind_runner.get_metrics(mode="GRIDMIND")
+        # 2. Run GridMind
+        gridmind_runner = MicrogridSimulator(sc_name)
+        gridmind_orch = MultiAgentOrchestrator(gridmind_runner)
+        for _ in range(gridmind_runner.total_steps):
+            gridmind_orch.step()
+        gm_metrics = gridmind_runner.get_metrics(mode="GRIDMIND")
 
-    # 3. Compare metrics
-    comp = compare_metrics(base_metrics, gm_metrics)
+        # 3. Compare metrics
+        comp = compare_metrics(base_metrics, gm_metrics)
 
     comparison_data = {
         "comparison": comp,

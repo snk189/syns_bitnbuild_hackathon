@@ -16,9 +16,16 @@ router = APIRouter(prefix="/api")
 # Global singleton simulation state for live demo
 global_sim = MicrogridSimulator(scenario_name="cloud_cover_peak")
 global_orchestrator = MultiAgentOrchestrator(global_sim)
+# Step once so initial state and history are immediately populated without delay on first request
+try:
+    global_orchestrator.step()
+except Exception:
+    pass
+
 sim_task: Optional[asyncio.Task] = None
 active_websockets: List[WebSocket] = []
 what_if_planner = WhatIfPlanningAgent()
+comparison_cache: Dict[str, Any] = {}
 
 class ScenarioSelectRequest(BaseModel):
     scenario: str
@@ -311,6 +318,10 @@ async def execute_what_if_plan(req: PlanExecuteRequest):
 def get_comparison(scenario: Optional[str] = None):
     sc_name = scenario or global_sim.scenario_name
 
+    # Check in-memory cache for instant response
+    if sc_name in comparison_cache:
+        return comparison_cache[sc_name]
+
     # 1. Run full baseline mode
     baseline_runner = BaselineSimulator(sc_name)
     base_metrics, base_states = baseline_runner.run_full_simulation()
@@ -345,10 +356,12 @@ def get_comparison(scenario: Optional[str] = None):
             "p2p_volume_kwh": g_st.p2p_volume_kwh
         })
 
-    return {
+    result = {
         "comparison": comp,
         "chart_data": chart_data
     }
+    comparison_cache[sc_name] = result
+    return result
 
 @router.get("/agents/logs")
 def get_agent_logs(limit: int = 40):
@@ -421,13 +434,17 @@ async def broadcast_state_update(state: GridState, metrics: SimulationMetrics):
 async def run_simulation_loop():
     global global_orchestrator
     while global_sim.is_running:
-        if global_sim.current_step >= global_sim.total_steps:
-            # Loop seamlessly back to step 0
-            global_sim.reset(global_sim.scenario_name)
-            global_orchestrator = MultiAgentOrchestrator(global_sim)
+        try:
+            if global_sim.current_step >= global_sim.total_steps:
+                # Loop seamlessly back to step 0
+                global_sim.reset(global_sim.scenario_name)
+                global_orchestrator = MultiAgentOrchestrator(global_sim)
 
-        state = global_orchestrator.step()
-        metrics = global_sim.get_metrics(mode="GRIDMIND")
-        await broadcast_state_update(state, metrics)
+            state = global_orchestrator.step()
+            metrics = global_sim.get_metrics(mode="GRIDMIND")
+            await broadcast_state_update(state, metrics)
+        except Exception as e:
+            # Prevent loop crash
+            pass
         delay = max(0.08, 0.6 / global_sim.speed_multiplier)
         await asyncio.sleep(delay)

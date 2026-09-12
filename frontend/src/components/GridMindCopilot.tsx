@@ -20,6 +20,7 @@ import {
   Minimize2,
 } from "lucide-react";
 import { ChatMessage, GridState } from "../types";
+import ReactMarkdown from "react-markdown";
 
 interface GridMindCopilotProps {
   isOpen: boolean;
@@ -311,8 +312,28 @@ export const GridMindCopilot: React.FC<GridMindCopilotProps> = ({
               }`}
             >
               {/* Message Content with Markdown parsing */}
-              <div className="prose-chat whitespace-pre-line break-words space-y-2">
-                {msg.content}
+              <div className="prose-chat break-words text-xs leading-relaxed">
+                {msg.role === "user" ? (
+                  <div className="whitespace-pre-wrap">{msg.content}</div>
+                ) : (
+                  <ReactMarkdown
+                    components={{
+                      p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                      strong: ({ children }) => <strong className="font-bold text-cyan-200">{children}</strong>,
+                      em: ({ children }) => <em className="italic text-slate-300">{children}</em>,
+                      h1: ({ children }) => <h1 className="text-sm font-bold text-white mt-3 mb-1.5 border-b border-slate-700/60 pb-1">{children}</h1>,
+                      h2: ({ children }) => <h2 className="text-xs font-bold text-white mt-2.5 mb-1">{children}</h2>,
+                      h3: ({ children }) => <h3 className="text-xs font-bold text-cyan-300 mt-2 mb-1">{children}</h3>,
+                      ul: ({ children }) => <ul className="list-disc list-inside space-y-1 my-1.5 pl-1">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal list-inside space-y-1 my-1.5 pl-1">{children}</ol>,
+                      li: ({ children }) => <li className="text-slate-200">{children}</li>,
+                      code: ({ children }) => <code className="px-1.5 py-0.5 rounded bg-slate-950 font-mono text-[11px] text-cyan-300 border border-slate-800">{children}</code>,
+                      blockquote: ({ children }) => <blockquote className="border-l-2 border-cyan-500/50 pl-2.5 italic text-slate-400 my-2">{children}</blockquote>
+                    }}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
+                )}
               </div>
 
               {/* Notice / Fallback alert if key not set */}

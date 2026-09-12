@@ -156,15 +156,20 @@ export default function DashboardPage() {
 
   // Handlers for Simulation Controls
   const handlePlayPause = async () => {
-    const endpoint = isRunning ? "/api/simulation/pause" : "/api/simulation/start";
+    const nextState = !isRunning;
+    setIsRunning(nextState);
+    const endpoint = nextState ? "/api/simulation/start" : "/api/simulation/pause";
     try {
       const res = await fetch(`${BACKEND_URL}${endpoint}`, { method: "POST" });
       if (res.ok) {
         const json = await res.json();
         setIsRunning(json.is_running);
+      } else {
+        setIsRunning(!nextState);
       }
     } catch (e) {
       console.error("Control action error", e);
+      setIsRunning(!nextState);
     }
   };
 
