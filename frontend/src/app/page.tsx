@@ -14,6 +14,8 @@ import { WhatIfPlannerModal } from "../components/WhatIfPlannerModal";
 import { EventTimeline } from "../components/EventTimeline";
 import { GridMindCopilot } from "../components/GridMindCopilot";
 import { AIConfigModal } from "../components/AIConfigModal";
+import { AgentDecisionsView } from "../components/AgentDecisionsView";
+import { UserTradingView } from "../components/UserTradingView";
 import {
   GridState,
   SimulationMetrics,
@@ -45,6 +47,7 @@ export default function DashboardPage() {
   const [isComparisonOpen, setIsComparisonOpen] = useState(false);
   const [isWhatIfOpen, setIsWhatIfOpen] = useState(false);
   const [bottomTab, setBottomTab] = useState<"p2p" | "audit">("p2p");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "decisions" | "trading">("dashboard");
 
   // AI Copilot & OpenAI Key States
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
@@ -264,6 +267,9 @@ export default function DashboardPage() {
         const data = await res.json();
         if (data.state) setGridState(data.state);
         if (data.metrics) setMetrics(data.metrics);
+        if (data.messages && data.messages.length > 0) setMessages(data.messages);
+        if (data.decisions && data.decisions.length > 0) setDecisions(data.decisions);
+        if (data.trades && data.trades.length > 0) setTrades(data.trades);
       }
       setCrisisTriggered(true);
     } catch (e) {
@@ -327,6 +333,8 @@ export default function DashboardPage() {
         currentScenario={currentScenario}
         scenarios={scenarios}
         crisisTriggered={crisisTriggered}
+        activeTab={activeTab}
+        onTabChange={(tab) => setActiveTab(tab)}
         isAIOpen={isCopilotOpen}
         onToggleAI={() => setIsCopilotOpen(!isCopilotOpen)}
         onOpenAIConfig={() => setIsAIConfigOpen(true)}
@@ -341,144 +349,171 @@ export default function DashboardPage() {
         onOpenWhatIf={() => setIsWhatIfOpen(true)}
       />
 
-      {/* Main Dashboard Body */}
+      {/* Main App Body */}
       <main className="flex-1 max-w-[1600px] w-full mx-auto p-3.5 md:p-6 space-y-4">
-        {/* Scenario Story Explainer Banner */}
-        <div className="glass-panel p-4 rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-slate-900/90 via-cyan-950/25 to-slate-900/90 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-          <div className="flex items-start space-x-3">
-            <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 mt-0.5 shrink-0">
-              <Sparkles className="w-5 h-5 animate-pulse text-cyan-300" />
-            </div>
-            <div>
-              <div className="flex items-center space-x-2 flex-wrap gap-y-1">
-                <span className="text-[11px] uppercase font-extrabold tracking-wider text-cyan-400">
-                  Active Simulation Scenario:
-                </span>
-                <span className="text-xs font-bold text-white px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700">
-                  {activeScenarioObj?.title || currentScenario}
-                </span>
-                <span className="text-[10px] font-mono text-slate-400">
-                  Clock: <strong className="text-white">{gridState?.time_str || "00:00"}</strong>
-                </span>
-              </div>
-              <p className="text-xs text-slate-300 mt-1 leading-relaxed max-w-4xl">
-                {activeScenarioObj?.description ||
-                  "Sudden cloud cover strikes at 18:30 (step 74), plunging solar by 85% exactly as EVs plug in and dinner demand peaks."}
-              </p>
-            </div>
-          </div>
-
-          {/* Quick Actions, AI Copilot & What-If Planner */}
-          <div className="flex items-center space-x-2 shrink-0 bg-slate-950/70 p-1.5 rounded-xl border border-slate-800 flex-wrap gap-y-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
-              Actions:
-            </span>
-            <button
-              onClick={() => setIsCopilotOpen(true)}
-              className="px-3 py-1 text-xs font-black rounded-lg bg-gradient-to-r from-cyan-500/30 to-indigo-500/30 hover:from-cyan-500/45 hover:to-indigo-500/45 text-cyan-200 border border-cyan-400/50 shadow-md ring-1 ring-cyan-400/30 transition-all flex items-center space-x-1.5"
-              title="Open Autonomous AI Microgrid Copilot"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
-              <span>✨ AI Copilot</span>
-            </button>
-            <button
-              onClick={() => setIsWhatIfOpen(true)}
-              className="px-3 py-1 text-xs font-black rounded-lg bg-gradient-to-r from-cyan-500/25 via-indigo-500/25 to-purple-500/25 hover:from-cyan-500/40 hover:to-purple-500/40 text-cyan-200 border border-cyan-400/50 shadow-md ring-1 ring-cyan-400/30 transition-all flex items-center space-x-1.5"
-              title="Autonomous What-If Scenario Planning Agent"
-            >
-              <Bot className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
-              <span>🧠 Plan 30m What-If</span>
-            </button>
-            <button
-              onClick={() => handleJumpTo(48)}
-              className="px-2.5 py-1 text-xs font-bold rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 transition-all flex items-center space-x-1"
-              title="Jump directly to 12:00 (Midday Solar Peak)"
-            >
-              <Sun className="w-3.5 h-3.5 mr-1" />
-              <span>12:00 Noon</span>
-            </button>
-            <button
-              onClick={() => handleJumpTo(74)}
-              className="px-2.5 py-1 text-xs font-bold rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 transition-all flex items-center space-x-1"
-              title="Jump directly to 18:30 (Evening Peak & Storm Shock)"
-            >
-              <Zap className="w-3.5 h-3.5 mr-1 text-rose-400" />
-              <span>18:30 Peak</span>
-            </button>
-          </div>
-        </div>
-
-        {/* 1. Grid Status Banner */}
-        {gridState && (
-          <GridStatusBanner
-            status={gridState.status}
-            transformerLoadPct={gridState.transformer_load_pct}
-            transformerCapacityKw={gridState.transformer_capacity_kw}
-            voltagePu={gridState.voltage_pu}
-            frequencyHz={gridState.frequency_hz}
-            crisisTriggered={crisisTriggered}
+        {activeTab === "decisions" ? (
+          /* TAB 2: AGENT DECISIONS VIEW */
+          <AgentDecisionsView
+            currentScenario={currentScenario}
+            scenarios={scenarios}
+            currentStep={gridState?.step || 0}
+            timeStr={gridState?.time_str || "00:00"}
+            isRunning={isRunning}
+            onScenarioChange={handleScenarioChange}
+            onJumpToStep={handleJumpTo}
           />
-        )}
-
-        {/* 2. Key Telemetry KPI Cards */}
-        {gridState && metrics && <MetricsCards state={gridState} metrics={metrics} />}
-
-        {/* 3. Operational Grid Workspace: 2-Column Split */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-          {/* Left Column (7 cols): Topological Power Flow + Tabbed Market/Audit Table */}
-          <div className="lg:col-span-7 space-y-4">
-            {gridState && <EnergyFlowDiagram state={gridState} />}
-
-            {/* Bottom Tab Switcher: P2P Ledger vs Decision Audit Trail */}
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2 border-b border-slate-800 pb-1">
-                <button
-                  onClick={() => setBottomTab("p2p")}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors ${
-                    bottomTab === "p2p"
-                      ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
-                      : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  P2P Energy Trading Ledger
-                </button>
-                <button
-                  onClick={() => setBottomTab("audit")}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors ${
-                    bottomTab === "audit"
-                      ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
-                      : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  Explainable Agent Decision Logs ({decisions.length})
-                </button>
+        ) : activeTab === "trading" ? (
+          /* TAB 3: USER P2P TRADING VIEW */
+          <UserTradingView
+            gridState={gridState}
+            metrics={metrics}
+            trades={trades}
+            onTradeExecuted={() => {
+              // Quick refresh
+              handleStep();
+            }}
+          />
+        ) : (
+          /* TAB 1: DEFAULT DASHBOARD */
+          <>
+            {/* Scenario Story Explainer Banner */}
+            <div className="glass-panel p-4 rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-slate-900/90 via-cyan-950/25 to-slate-900/90 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+              <div className="flex items-start space-x-3">
+                <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 mt-0.5 shrink-0">
+                  <Sparkles className="w-5 h-5 animate-pulse text-cyan-300" />
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                    <span className="text-[11px] uppercase font-extrabold tracking-wider text-cyan-400">
+                      Active Simulation Scenario:
+                    </span>
+                    <span className="text-xs font-bold text-white px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700">
+                      {activeScenarioObj?.title || currentScenario}
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      Clock: <strong className="text-white">{gridState?.time_str || "00:00"}</strong>
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 mt-1 leading-relaxed max-w-4xl">
+                    {activeScenarioObj?.description ||
+                      "Sudden cloud cover strikes at 18:30 (step 74), plunging solar by 85% exactly as EVs plug in and dinner demand peaks."}
+                  </p>
+                </div>
               </div>
 
-              {bottomTab === "p2p" ? (
-                <P2PTradingLedger
-                  trades={trades}
-                  totalVolumeKwh={metrics?.p2p_energy_traded_kwh || 0}
-                  clearingPrice={gridState?.p2p_clearing_price_kwh || 8.5}
-                  gridRetailTariff={gridState?.grid_buy_price_kwh || 13.5}
-                />
-              ) : (
-                <AgentDecisionAudit
-                  decisions={decisions}
-                  onExplainDecision={handleExplainDecision}
-                />
-              )}
+              {/* Quick Actions, AI Copilot & What-If Planner */}
+              <div className="flex items-center space-x-2 shrink-0 bg-slate-950/70 p-1.5 rounded-xl border border-slate-800 flex-wrap gap-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
+                  Actions:
+                </span>
+                <button
+                  onClick={() => setIsCopilotOpen(true)}
+                  className="px-3 py-1 text-xs font-black rounded-lg bg-gradient-to-r from-cyan-500/30 to-indigo-500/30 hover:from-cyan-500/45 hover:to-indigo-500/45 text-cyan-200 border border-cyan-400/50 shadow-md ring-1 ring-cyan-400/30 transition-all flex items-center space-x-1.5"
+                  title="Open Autonomous AI Microgrid Copilot"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
+                  <span>✨ AI Copilot</span>
+                </button>
+                <button
+                  onClick={() => setIsWhatIfOpen(true)}
+                  className="px-3 py-1 text-xs font-black rounded-lg bg-gradient-to-r from-cyan-500/25 via-indigo-500/25 to-purple-500/25 hover:from-cyan-500/40 hover:to-purple-500/40 text-cyan-200 border border-cyan-400/50 shadow-md ring-1 ring-cyan-400/30 transition-all flex items-center space-x-1.5"
+                  title="Autonomous What-If Scenario Planning Agent"
+                >
+                  <Bot className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
+                  <span>🧠 Plan 30m What-If</span>
+                </button>
+                <button
+                  onClick={() => handleJumpTo(48)}
+                  className="px-2.5 py-1 text-xs font-bold rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 transition-all flex items-center space-x-1"
+                  title="Jump directly to 12:00 (Midday Solar Peak)"
+                >
+                  <Sun className="w-3.5 h-3.5 mr-1" />
+                  <span>12:00 Noon</span>
+                </button>
+                <button
+                  onClick={() => handleJumpTo(74)}
+                  className="px-2.5 py-1 text-xs font-bold rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 transition-all flex items-center space-x-1"
+                  title="Jump directly to 18:30 (Evening Peak & Storm Shock)"
+                >
+                  <Zap className="w-3.5 h-3.5 mr-1 text-rose-400" />
+                  <span>18:30 Peak</span>
+                </button>
+              </div>
             </div>
-          </div>
 
-          {/* Right Column (5 cols): Live Agent Negotiation Feed + Event Timeline */}
-          <div className="lg:col-span-5 space-y-4">
-            <AgentActivityFeed
-              messages={messages}
-              onExplainMessage={handleExplainMessage}
-            />
-            <EventTimeline messages={messages} currentStep={gridState?.step || 0} />
-          </div>
-        </div>
+            {/* 1. Grid Status Banner */}
+            {gridState && (
+              <GridStatusBanner
+                status={gridState.status}
+                transformerLoadPct={gridState.transformer_load_pct}
+                transformerCapacityKw={gridState.transformer_capacity_kw}
+                voltagePu={gridState.voltage_pu}
+                frequencyHz={gridState.frequency_hz}
+                crisisTriggered={crisisTriggered}
+              />
+            )}
+
+            {/* 2. Key Telemetry KPI Cards */}
+            {gridState && metrics && <MetricsCards state={gridState} metrics={metrics} />}
+
+            {/* 3. Operational Grid Workspace: 2-Column Split */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+              {/* Left Column (7 cols): Topological Power Flow + Tabbed Market/Audit Table */}
+              <div className="lg:col-span-7 space-y-4">
+                {gridState && <EnergyFlowDiagram state={gridState} />}
+
+                {/* Bottom Tab Switcher: P2P Ledger vs Decision Audit Trail */}
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2 border-b border-slate-800 pb-1">
+                    <button
+                      onClick={() => setBottomTab("p2p")}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors ${
+                        bottomTab === "p2p"
+                          ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                          : "text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      P2P Energy Trading Ledger
+                    </button>
+                    <button
+                      onClick={() => setBottomTab("audit")}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors ${
+                        bottomTab === "audit"
+                          ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                          : "text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      Explainable Agent Decision Logs ({decisions.length})
+                    </button>
+                  </div>
+
+                  {bottomTab === "p2p" ? (
+                    <P2PTradingLedger
+                      trades={trades}
+                      totalVolumeKwh={metrics?.p2p_energy_traded_kwh || 0}
+                      clearingPrice={gridState?.p2p_clearing_price_kwh || 8.5}
+                      gridRetailTariff={gridState?.grid_buy_price_kwh || 13.5}
+                    />
+                  ) : (
+                    <AgentDecisionAudit
+                      decisions={decisions}
+                      onExplainDecision={handleExplainDecision}
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column (5 cols): Live Agent Negotiation Feed + Event Timeline */}
+              <div className="lg:col-span-5 space-y-4">
+                <AgentActivityFeed
+                  messages={messages}
+                  onExplainMessage={handleExplainMessage}
+                />
+                <EventTimeline messages={messages} currentStep={gridState?.step || 0} />
+              </div>
+            </div>
+          </>
+        )}
       </main>
 
       {/* Baseline vs GridMind Comparison Modal */}

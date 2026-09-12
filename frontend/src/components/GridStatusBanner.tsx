@@ -71,11 +71,11 @@ export const GridStatusBanner: React.FC<GridStatusBannerProps> = ({
         {/* Electrical Metrics Gauges */}
         <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
           {/* Transformer Loading Bar */}
-          <div className="bg-slate-900/90 border border-slate-800/80 rounded-xl px-3.5 py-2 min-w-[200px] flex-1 lg:flex-initial">
-            <div className="flex justify-between items-center text-xs mb-1">
-              <span className="text-slate-400 font-medium">Transformer Load</span>
-              <span className={`font-mono font-bold ${isCritical ? "text-rose-400" : isWarning ? "text-amber-400" : "text-emerald-400"}`}>
-                {transformerLoadPct.toFixed(1)}% / {transformerCapacityKw} kW
+          <div className="bg-slate-900/90 border border-slate-800/80 rounded-xl px-3.5 py-2 min-w-[240px] flex-1 lg:flex-initial">
+            <div className="flex justify-between items-center text-xs mb-1.5 gap-3">
+              <span className="text-slate-400 font-medium shrink-0">Transformer Load</span>
+              <span className={`font-mono font-bold shrink-0 text-right ${isCritical ? "text-rose-400" : isWarning ? "text-amber-400" : "text-emerald-400"}`}>
+                {transformerLoadPct.toFixed(1)}% <span className="text-slate-500 font-normal">/ {transformerCapacityKw} kW</span>
               </span>
             </div>
             <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">

@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio
+import uuid
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
 from pydantic import BaseModel
@@ -243,7 +244,18 @@ async def trigger_crisis():
     state = global_orchestrator.step()
     metrics = global_sim.get_metrics(mode="GRIDMIND")
     await broadcast_state_update(state, metrics)
-    return {"status": "CRISIS_TRIGGERED", "step": global_sim.current_step, "state": state, "metrics": metrics}
+    recent_msgs = bus.get_recent_messages(10)
+    recent_decisions = global_orchestrator.memory.get_recent_decisions(6)
+    recent_trades = [t.model_dump() if hasattr(t, "model_dump") else t for t in global_sim.executed_trades[-30:]]
+    return {
+        "status": "CRISIS_TRIGGERED",
+        "step": global_sim.current_step,
+        "state": state,
+        "metrics": metrics,
+        "messages": recent_msgs,
+        "decisions": recent_decisions,
+        "trades": recent_trades
+    }
 
 @router.post("/planning/what-if")
 def evaluate_what_if_plan(req: WhatIfRequest):
@@ -363,9 +375,95 @@ def get_comparison(scenario: Optional[str] = None):
     comparison_cache[sc_name] = result
     return result
 
+class UserOrderRequest(BaseModel):
+    user_name: str
+    order_type: str  # "BUY" or "SELL"
+    energy_kwh: float
+    price_kwh: float
+    duration_minutes: Optional[int] = 60
+    priority: Optional[str] = "NORMAL"
+
+# In-memory user / marketplace order book
+market_orders: List[Dict[str, Any]] = [
+    {
+        "order_id": "ORD_PRO_01",
+        "user_name": "Prosumer Solar (H2)",
+        "type": "SELL",
+        "energy_kwh": 6.5,
+        "price_kwh": 7.8,
+        "time": "12:15",
+        "duration": "60m",
+        "priority": "HIGH",
+        "status": "ACTIVE"
+    },
+    {
+        "order_id": "ORD_BAT_02",
+        "user_name": "Community Battery Hub",
+        "type": "SELL",
+        "energy_kwh": 12.0,
+        "price_kwh": 8.5,
+        "time": "14:00",
+        "duration": "45m",
+        "priority": "NORMAL",
+        "status": "ACTIVE"
+    },
+    {
+        "order_id": "ORD_EV_03",
+        "user_name": "EV Fleet Depot 1",
+        "type": "BUY",
+        "energy_kwh": 15.0,
+        "price_kwh": 9.2,
+        "time": "13:30",
+        "duration": "90m",
+        "priority": "HIGH",
+        "status": "ACTIVE"
+    },
+    {
+        "order_id": "ORD_RES_04",
+        "user_name": "Household 4 (No Solar)",
+        "type": "BUY",
+        "energy_kwh": 4.2,
+        "price_kwh": 9.0,
+        "time": "15:00",
+        "duration": "30m",
+        "priority": "NORMAL",
+        "status": "ACTIVE"
+    }
+]
+
 @router.get("/agents/logs")
 def get_agent_logs(limit: int = 40):
     return global_orchestrator.memory.get_recent_decisions(limit)
+
+@router.get("/agents/decisions")
+def get_agent_decisions_step(step: Optional[int] = None, scenario: Optional[str] = None):
+    """
+    Retrieve real agent decisions for a specific simulation step (0-95).
+    If no decisions exist yet for that step in memory, runs a quick simulated evaluation
+    for that scenario and step to return genuine decisions and metrics.
+    """
+    target_step = step if step is not None else global_sim.current_step
+    target_step = max(0, min(95, target_step))
+    
+    # First check memory
+    decisions = global_orchestrator.memory.get_decisions_for_step(target_step)
+    
+    # If not present in current active run (e.g. user selected step ahead of simulation or different scenario)
+    if not decisions:
+        sim_eval = MicrogridSimulator(scenario_name=scenario or global_sim.scenario_name)
+        orch_eval = MultiAgentOrchestrator(sim_eval)
+        target = target_step
+        while sim_eval.current_step <= target:
+            orch_eval.step()
+        decisions = orch_eval.memory.get_decisions_for_step(target_step)
+        orch_eval.memory.close()
+    
+    return {
+        "step": target_step,
+        "time_str": global_sim.step_to_time_str(target_step),
+        "scenario": scenario or global_sim.scenario_name,
+        "decisions": decisions
+    }
 
 @router.get("/agents/messages")
 def get_agent_messages(limit: int = 50):
@@ -375,6 +473,123 @@ def get_agent_messages(limit: int = 50):
 @router.get("/market/trades")
 def get_market_trades():
     return global_sim.executed_trades[-50:]
+
+@router.get("/market/orders")
+def get_market_orders():
+    return market_orders
+
+@router.post("/market/order")
+async def place_market_order(order: UserOrderRequest):
+    """
+    Place a user-facing Buy or Sell order in the P2P energy market.
+    Matches immediately with opposite orders or grid prosumers and executes trade.
+    """
+    order_id = f"ORD_{uuid.uuid4().hex[:6].upper()}"
+    step = global_sim.current_step
+    time_str = global_sim.step_to_time_str(step)
+    
+    # Check if there is an immediate matching opportunity in marketplace
+    matched_trade = None
+    executed_energy = 0.0
+    clearing_price = order.price_kwh
+    
+    opposite_type = "SELL" if order.order_type == "BUY" else "BUY"
+    for o in market_orders:
+        if o["type"] == opposite_type and o["status"] == "ACTIVE":
+            # Match condition: For BUY, user price >= seller price; for SELL, user price <= buyer price
+            is_match = (order.order_type == "BUY" and order.price_kwh >= o["price_kwh"]) or \
+                       (order.order_type == "SELL" and order.price_kwh <= o["price_kwh"])
+            if is_match:
+                executed_energy = min(order.energy_kwh, o["energy_kwh"])
+                clearing_price = round((order.price_kwh + o["price_kwh"]) / 2.0, 2)
+                
+                # Update matched order status
+                if executed_energy >= o["energy_kwh"]:
+                    o["status"] = "EXECUTED"
+                else:
+                    o["energy_kwh"] = round(o["energy_kwh"] - executed_energy, 2)
+                
+                seller = o["user_name"] if order.order_type == "BUY" else order.user_name
+                buyer = order.user_name if order.order_type == "BUY" else o["user_name"]
+                
+                trade = P2PTrade(
+                    trade_id=f"TRD_{uuid.uuid4().hex[:6].upper()}",
+                    step=step,
+                    time_str=time_str,
+                    seller_id=seller,
+                    buyer_id=buyer,
+                    energy_kwh=executed_energy,
+                    price_kwh=clearing_price,
+                    total_value=round(executed_energy * clearing_price, 2),
+                    status="EXECUTED"
+                )
+                global_sim.executed_trades.append(trade)
+                global_sim.p2p_energy_traded_kwh += executed_energy
+                global_sim.p2p_trade_count += 1
+                matched_trade = trade
+                break
+
+    # If no immediate marketplace order matched, automatically match with community battery or solar aggregator
+    if not matched_trade:
+        executed_energy = order.energy_kwh
+        seller = "Community Solar Farm" if order.order_type == "BUY" else order.user_name
+        buyer = order.user_name if order.order_type == "BUY" else "Community BESS Hub"
+        clearing_price = order.price_kwh
+        
+        trade = P2PTrade(
+            trade_id=f"TRD_{uuid.uuid4().hex[:6].upper()}",
+            step=step,
+            time_str=time_str,
+            seller_id=seller,
+            buyer_id=buyer,
+            energy_kwh=executed_energy,
+            price_kwh=clearing_price,
+            total_value=round(executed_energy * clearing_price, 2),
+            status="EXECUTED"
+        )
+        global_sim.executed_trades.append(trade)
+        global_sim.p2p_energy_traded_kwh += executed_energy
+        global_sim.p2p_trade_count += 1
+        matched_trade = trade
+
+    # Add active order log to orders list
+    market_orders.insert(0, {
+        "order_id": order_id,
+        "user_name": order.user_name,
+        "type": order.order_type,
+        "energy_kwh": order.energy_kwh,
+        "price_kwh": order.price_kwh,
+        "time": time_str,
+        "duration": f"{order.duration_minutes or 60}m",
+        "priority": order.priority or "NORMAL",
+        "status": "EXECUTED" if matched_trade else "ACTIVE"
+    })
+
+    # Broadcast updated state & trades to dashboard and all clients
+    state = global_sim.history[-1] if global_sim.history else None
+    metrics = global_sim.get_metrics(mode="GRIDMIND")
+    if state:
+        await broadcast_state_update(state, metrics)
+
+    # Publish notification on MessageBus
+    MessageBus.get_instance().publish(
+        step=step,
+        time_str=time_str,
+        sender="MarketAgent",
+        receiver=order.user_name,
+        message_type="USER_P2P_TRADE",
+        priority="HIGH",
+        content=f"User Trade Executed: {order.user_name} ({order.order_type}) matched {executed_energy:.1f} kWh @ ₹{clearing_price}/kWh. Total: ₹{round(executed_energy * clearing_price, 2)}.",
+        reasoning=f"User initiated manual {order.order_type} order cleared in peer-to-peer microgrid exchange."
+    )
+
+    return {
+        "status": "ORDER_PROCESSED",
+        "order_id": order_id,
+        "trade": matched_trade.model_dump() if matched_trade else None,
+        "all_orders": market_orders,
+        "trades": [t.model_dump() if hasattr(t, "model_dump") else t for t in global_sim.executed_trades[-30:]]
+    }
 
 # WebSocket for real-time live events and state streaming
 @router.websocket("/ws")

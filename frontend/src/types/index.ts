@@ -263,3 +263,15 @@ export interface ExecutiveReportData {
   model: string;
   comparison: SimulationComparison;
 }
+
+export interface MarketOrder {
+  order_id: string;
+  user_name: string;
+  type: "BUY" | "SELL";
+  energy_kwh: number;
+  price_kwh: number;
+  time: string;
+  duration?: string;
+  priority?: string;
+  status: "ACTIVE" | "EXECUTED" | "CANCELLED";
+}

@@ -138,8 +138,9 @@ class MicrogridSimulator:
                 cloud_factor = 0.15  # 85% drop
                 weather = WeatherCondition.OVERCAST
 
-        if self.crisis_triggered and step >= 70:
-            cloud_factor = min(cloud_factor, 0.12)
+        if self.crisis_triggered:
+            # Immediate severe cloud cover and storm conditions whenever operator triggers crisis
+            cloud_factor = min(cloud_factor, 0.10)
             weather = WeatherCondition.STORM
 
         return max(0.0, base_irradiance * cloud_factor), weather
@@ -157,10 +158,13 @@ class MicrogridSimulator:
             # Evening dinner & peak
             peak_intensity = math.sin((hour - 17.0) / 5.0 * math.pi)
             mult = 1.0 + 0.35 * peak_intensity * self.scenario.demand_spike_factor
-            if self.crisis_triggered and step >= 74:
-                mult *= 1.25  # Crisis demand surge
         else:
             mult = 0.65 - 0.25 * ((hour - 22.0) / 2.0)
+
+        # Immediate acute stress injection if operator triggers crisis
+        if self.crisis_triggered:
+            mult *= 1.45
+
         return mult
 
     def apply_simulation_step(

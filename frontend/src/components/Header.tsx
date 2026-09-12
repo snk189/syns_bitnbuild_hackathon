@@ -12,6 +12,8 @@ interface HeaderProps {
   currentScenario: string;
   scenarios: ScenarioInfo[];
   crisisTriggered: boolean;
+  activeTab?: "dashboard" | "decisions" | "trading";
+  onTabChange?: (tab: "dashboard" | "decisions" | "trading") => void;
   isAIOpen?: boolean;
   onToggleAI?: () => void;
   onOpenAIConfig?: () => void;
@@ -34,6 +36,8 @@ export const Header: React.FC<HeaderProps> = ({
   currentScenario,
   scenarios,
   crisisTriggered,
+  activeTab = "dashboard",
+  onTabChange,
   isAIOpen = false,
   onToggleAI,
   onOpenAIConfig,
@@ -50,22 +54,60 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="w-full glass-panel border-b border-slate-800/80 px-4 lg:px-6 py-3 sticky top-0 z-40">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        {/* Brand */}
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-            <Zap className="w-6 h-6 text-white animate-pulse" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h1 className="text-xl font-extrabold tracking-wider bg-gradient-to-r from-emerald-400 via-cyan-300 to-indigo-300 bg-clip-text text-transparent">
-                GRIDMIND
-              </h1>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-                Autonomous Multi-Agent Microgrid
-              </span>
+        {/* Brand & Main Navigation Tabs */}
+        <div className="flex items-center space-x-5 flex-wrap gap-y-2">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+              <Zap className="w-6 h-6 text-white animate-pulse" />
             </div>
-            <p className="text-xs text-slate-400">Decentralized Energy & P2P Trading Ecosystem</p>
+            <div>
+              <div className="flex items-center space-x-2">
+                <h1 className="text-xl font-extrabold tracking-wider bg-gradient-to-r from-emerald-400 via-cyan-300 to-indigo-300 bg-clip-text text-transparent">
+                  GRIDMIND
+                </h1>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                  Autonomous Microgrid
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">Decentralized Energy & P2P Trading</p>
+            </div>
           </div>
+
+          {/* Top-Level Navigation: Dashboard | Agent Decisions | Trading */}
+          {onTabChange && (
+            <div className="flex items-center bg-slate-950/90 border border-slate-800/90 rounded-2xl p-1 shadow-inner">
+              <button
+                onClick={() => onTabChange("dashboard")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  activeTab === "dashboard"
+                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={() => onTabChange("decisions")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  activeTab === "decisions"
+                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Agent Decisions
+              </button>
+              <button
+                onClick={() => onTabChange("trading")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  activeTab === "trading"
+                    ? "bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Trading
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Simulation Clock & Progress */}

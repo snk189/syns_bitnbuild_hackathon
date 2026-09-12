@@ -141,6 +141,38 @@ class AgentMemory:
             })
         return logs
 
+    def get_decisions_for_step(self, step: int) -> List[Dict[str, Any]]:
+        """Retrieve real agent decisions logged for a specific simulation timestep."""
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT step, time_str, agent_name, observation, decision, reason, state_json, constraints_json, tools_json, created_at
+            FROM decision_audit_logs
+            WHERE step = ?
+            ORDER BY id DESC
+        """, (step,))
+        rows = cursor.fetchall()
+        # Keep most recent entry per agent for this timestep
+        seen_agents = set()
+        logs = []
+        for r in rows:
+            agent = r[2]
+            if agent in seen_agents:
+                continue
+            seen_agents.add(agent)
+            logs.append({
+                "step": r[0],
+                "time_str": r[1],
+                "agent": agent,
+                "observation": r[3],
+                "decision": r[4],
+                "reason": r[5],
+                "state": json.loads(r[6]) if r[6] else {},
+                "constraints": json.loads(r[7]) if r[7] else [],
+                "tools_used": json.loads(r[8]) if r[8] else [],
+                "timestamp": r[9]
+            })
+        return logs
+
     def close(self):
         try:
             self.conn.close()
