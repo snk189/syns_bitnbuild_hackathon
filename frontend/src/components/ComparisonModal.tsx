@@ -46,7 +46,7 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
   const fetchComparison = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/simulation/compare?scenario=${scenario}`);
+      const res = await fetch(`/api/simulation/compare?scenario=${scenario}`);
       if (res.ok) {
         const json = await res.json();
         setData(json);

@@ -63,6 +63,15 @@ class ConsumerAgent(BaseAgent):
             )
         else:
             reasoning = f"Normal grid conditions. Full residential appliance convenience maintained (Flexible load: {total_flexible_kw:.1f} kW)."
+            self.send_message(
+                step=current_step,
+                time_str=time_str,
+                receiver="MarketAgent",
+                message_type="DEMAND_STATUS",
+                priority="NORMAL",
+                content=f"10 households active. 0 kW shifted. Total flexible load: {total_flexible_kw:.1f} kW.",
+                reasoning=reasoning
+            )
 
         self.log_decision(
             step=current_step,

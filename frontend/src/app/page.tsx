@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { Sparkles, Sun, Zap, AlertTriangle } from "lucide-react";
 import { Header } from "../components/Header";
 import { GridStatusBanner } from "../components/GridStatusBanner";
 import { MetricsCards } from "../components/MetricsCards";
@@ -12,8 +13,8 @@ import { ComparisonModal } from "../components/ComparisonModal";
 import { EventTimeline } from "../components/EventTimeline";
 import { GridState, SimulationMetrics, ScenarioInfo, AgentMessage, AgentDecisionLog, P2PTrade } from "../types";
 
-const BACKEND_URL = "http://127.0.0.1:8000";
-const WS_URL = "ws://127.0.0.1:8000/ws";
+const BACKEND_URL = "";
+const WS_URL = typeof window !== "undefined" ? `ws://${window.location.hostname}:8000/ws` : "ws://127.0.0.1:8000/ws";
 
 export default function DashboardPage() {
   const [gridState, setGridState] = useState<GridState | null>(null);
@@ -103,6 +104,9 @@ export default function DashboardPage() {
               if (data.decisions && data.decisions.length > 0) {
                 setDecisions(data.decisions);
               }
+              if (data.trades && data.trades.length > 0) {
+                setTrades(data.trades);
+              }
             }
           } catch (e) {
             console.error("Error parsing WS frame", e);
@@ -139,7 +143,25 @@ export default function DashboardPage() {
 
   const handleStep = async () => {
     try {
-      await fetch(`${BACKEND_URL}/api/simulation/step`, { method: "POST" });
+      const res = await fetch(`${BACKEND_URL}/api/simulation/step`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.state) setGridState(data.state);
+        if (data.metrics) setMetrics(data.metrics);
+        if (data.messages && data.messages.length > 0) {
+          setMessages((prev) => {
+            const existingIds = new Set(prev.map((m) => m.id));
+            const newOnes = data.messages.filter((m: AgentMessage) => !existingIds.has(m.id));
+            return [...prev, ...newOnes];
+          });
+        }
+        if (data.decisions && data.decisions.length > 0) {
+          setDecisions(data.decisions);
+        }
+        if (data.trades && data.trades.length > 0) {
+          setTrades(data.trades);
+        }
+      }
     } catch (e) {
       console.error("Step error", e);
     }
@@ -153,6 +175,9 @@ export default function DashboardPage() {
         body: JSON.stringify({ scenario: currentScenario }),
       });
       if (res.ok) {
+        const data = await res.json();
+        if (data.state) setGridState(data.state);
+        if (data.metrics) setMetrics(data.metrics);
         setIsRunning(false);
         setCrisisTriggered(false);
         setMessages([]);
@@ -179,11 +204,16 @@ export default function DashboardPage() {
   const handleScenarioChange = async (scId: string) => {
     setCurrentScenario(scId);
     try {
-      await fetch(`${BACKEND_URL}/api/simulation/scenario`, {
+      const res = await fetch(`${BACKEND_URL}/api/simulation/scenario`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scenario: scId }),
       });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.state) setGridState(data.state);
+        if (data.metrics) setMetrics(data.metrics);
+      }
       setIsRunning(false);
       setCrisisTriggered(false);
       setMessages([]);
@@ -195,12 +225,39 @@ export default function DashboardPage() {
 
   const handleTriggerCrisis = async () => {
     try {
-      await fetch(`${BACKEND_URL}/api/simulation/trigger-crisis`, { method: "POST" });
+      const res = await fetch(`${BACKEND_URL}/api/simulation/trigger-crisis`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.state) setGridState(data.state);
+        if (data.metrics) setMetrics(data.metrics);
+      }
       setCrisisTriggered(true);
     } catch (e) {
       console.error("Crisis trigger error", e);
     }
   };
+
+  const handleJumpTo = async (targetStep: number) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/simulation/jump`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ step: targetStep }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.state) setGridState(data.state);
+        if (data.metrics) setMetrics(data.metrics);
+        if (data.messages && data.messages.length > 0) setMessages(data.messages);
+        if (data.decisions && data.decisions.length > 0) setDecisions(data.decisions);
+        if (data.trades && data.trades.length > 0) setTrades(data.trades);
+      }
+    } catch (e) {
+      console.error("Jump error", e);
+    }
+  };
+
+  const activeScenarioObj = scenarios.find((s) => s.id === currentScenario);
 
   return (
     <div className="min-h-screen bg-[#050811] text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30">
@@ -224,6 +281,55 @@ export default function DashboardPage() {
 
       {/* Main Dashboard Body */}
       <main className="flex-1 max-w-[1600px] w-full mx-auto p-3.5 md:p-6 space-y-4">
+        {/* Scenario Story Explainer Banner */}
+        <div className="glass-panel p-4 rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-slate-900/90 via-cyan-950/25 to-slate-900/90 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+          <div className="flex items-start space-x-3">
+            <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 mt-0.5 shrink-0">
+              <Sparkles className="w-5 h-5 animate-pulse text-cyan-300" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                <span className="text-[11px] uppercase font-extrabold tracking-wider text-cyan-400">
+                  Active Simulation Scenario:
+                </span>
+                <span className="text-xs font-bold text-white px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700">
+                  {activeScenarioObj?.title || currentScenario}
+                </span>
+                <span className="text-[10px] font-mono text-slate-400">
+                  Clock: <strong className="text-white">{gridState?.time_str || "00:00"}</strong>
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-1 leading-relaxed max-w-4xl">
+                {activeScenarioObj?.description ||
+                  "Sudden cloud cover strikes at 18:30 (step 74), plunging solar by 85% exactly as EVs plug in and dinner demand peaks."}
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Moment Jumps */}
+          <div className="flex items-center space-x-2 shrink-0 bg-slate-950/70 p-1.5 rounded-xl border border-slate-800">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
+              Jump To:
+            </span>
+            <button
+              onClick={() => handleJumpTo(48)}
+              className="px-2.5 py-1 text-xs font-bold rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 transition-all flex items-center space-x-1"
+              title="Jump directly to 12:00 (Midday Solar Peak)"
+            >
+              <Sun className="w-3.5 h-3.5 mr-1" />
+              <span>12:00 Noon</span>
+            </button>
+            <button
+              onClick={() => handleJumpTo(74)}
+              className="px-2.5 py-1 text-xs font-bold rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 transition-all flex items-center space-x-1"
+              title="Jump directly to 18:30 (Evening Peak & Storm Shock)"
+            >
+              <Zap className="w-3.5 h-3.5 mr-1 text-rose-400" />
+              <span>18:30 Peak</span>
+            </button>
+          </div>
+        </div>
+
         {/* 1. Grid Status Banner */}
         {gridState && (
           <GridStatusBanner

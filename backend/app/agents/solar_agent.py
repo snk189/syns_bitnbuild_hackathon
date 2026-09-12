@@ -72,7 +72,16 @@ class SolarProducerAgent(BaseAgent):
             )
         else:
             ask_price = 0.0
-            reasoning = f"Minimal or zero surplus ({surplus_kw:.1f} kW). All generation consumed locally."
+            reasoning = f"Generation {total_gen_kw:.1f} kW consumed locally (Surplus: {surplus_kw:.1f} kW)."
+            self.send_message(
+                step=current_step,
+                time_str=time_str,
+                receiver="MarketAgent",
+                message_type="SOLAR_TELEMETRY",
+                priority="NORMAL",
+                content=f"Solar generation {total_gen_kw:.1f} kW. Local self-consumption: 100%.",
+                reasoning=reasoning
+            )
 
         # Decision log
         self.log_decision(

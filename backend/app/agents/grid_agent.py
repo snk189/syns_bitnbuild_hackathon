@@ -81,6 +81,15 @@ class GridAgent(BaseAgent):
             status = GridStatus.NORMAL
             needed_reduction = 0.0
             reasoning = f"Grid within normal operating limits (Transformer loading {predicted_load_pct:.1f}%)."
+            self.send_message(
+                step=current_step,
+                time_str=time_str,
+                receiver="ALL",
+                message_type="GRID_STATUS_NORMAL",
+                priority="NORMAL",
+                content=f"Transformer load healthy at {current_load_pct:.1f}% ({predicted_transformer_kw:.1f} kW / {trans_cap:.0f} kW). Voltage stable.",
+                reasoning=reasoning
+            )
 
         # Decision log
         self.log_decision(

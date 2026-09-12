@@ -10,17 +10,16 @@ interface EventTimelineProps {
 }
 
 export const EventTimeline: React.FC<EventTimelineProps> = ({ messages, currentStep }) => {
-  // Filter out high-impact milestone events
-  const timelineEvents = messages
-    .filter(
-      (m) =>
-        m.priority === "HIGH" ||
-        m.priority === "EMERGENCY" ||
-        m.message_type === "P2P_TRADE_CONFIRM" ||
-        m.message_type === "CRISIS_INJECTED"
-    )
-    .slice(-12)
-    .reverse();
+  // Filter out high-impact milestone events or fallback to latest coordination checkpoints
+  const filtered = messages.filter(
+    (m) =>
+      m.priority === "HIGH" ||
+      m.priority === "EMERGENCY" ||
+      m.message_type === "P2P_TRADE_CONFIRM" ||
+      m.message_type === "CRISIS_INJECTED" ||
+      m.message_type === "AGENT_INIT"
+  );
+  const timelineEvents = (filtered.length > 0 ? filtered : messages).slice(-12).reverse();
 
   return (
     <div className="glass-panel rounded-2xl p-4 flex flex-col h-[340px]">

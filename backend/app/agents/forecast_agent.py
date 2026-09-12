@@ -92,7 +92,17 @@ class ForecastAgent(BaseAgent):
                 reasoning=reasoning
             )
         else:
-            reasoning = f"Stable generation-to-load ratio anticipated over next 60 minutes. Max projected deficit: {max_deficit} kW."
+            reasoning = f"Stable generation-to-load ratio anticipated over next 60 minutes. Max projected deficit: {max_deficit:.1f} kW."
+            self.send_message(
+                step=current_step,
+                time_str=time_str,
+                receiver="GridAgent",
+                message_type="FORECAST_REPORT",
+                priority="NORMAL",
+                content=f"Solar forecast: {solar_forecasts.get('+30min', 0.0):.1f} kW | Load forecast: {demand_forecasts.get('+30min', 0.0):.1f} kW. Status stable.",
+                action_requested="MONITOR",
+                reasoning=reasoning
+            )
 
         # 4. Log Structured Decision
         self.log_decision(

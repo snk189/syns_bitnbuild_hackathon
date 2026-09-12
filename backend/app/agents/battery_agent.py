@@ -104,6 +104,15 @@ class BatteryAgent(BaseAgent):
             action_type = "STANDBY"
             proposed_kw = 0.0
             reasoning = f"SOC at {batt.soc_pct:.1f}%. Grid normal, no surplus. Maintaining standby to avoid idle degradation."
+            self.send_message(
+                step=current_step,
+                time_str=time_str,
+                receiver="MarketAgent",
+                message_type="BATTERY_STANDBY",
+                priority="NORMAL",
+                content=f"Battery SOC {batt.soc_pct:.1f}%. Usable: {usable_energy_kwh:.1f} kWh. Inverter headroom: {max_possible_discharge_kw:.1f} kW.",
+                reasoning=reasoning
+            )
 
         # Decision log
         self.log_decision(

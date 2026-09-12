@@ -1,8 +1,8 @@
 from __future__ import annotations
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from .api.routes import router
+from .api.routes import router, websocket_endpoint
 
 app = FastAPI(
     title="GRIDMIND API",
@@ -13,13 +13,17 @@ app = FastAPI(
 # Enable CORS for Next.js frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "*"],
+    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(router)
+
+@app.websocket("/ws")
+async def websocket_ws(websocket: WebSocket):
+    await websocket_endpoint(websocket)
 
 @app.get("/")
 def root():

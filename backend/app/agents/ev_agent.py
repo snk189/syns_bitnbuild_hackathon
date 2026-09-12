@@ -86,6 +86,15 @@ class EVAgent(BaseAgent):
             )
         else:
             reasoning = f"EV charging active for scheduled vehicles ({total_ev_demand_kw:.1f} kW load). All departure deadlines on track."
+            self.send_message(
+                step=current_step,
+                time_str=time_str,
+                receiver="MarketAgent",
+                message_type="EV_FLEET_STATUS",
+                priority="NORMAL",
+                content=f"EV Fleet: {len(ev_details)} vehicles charging ({total_ev_demand_kw:.1f} kW). Departure deadlines protected.",
+                reasoning=reasoning
+            )
 
         self.log_decision(
             step=current_step,

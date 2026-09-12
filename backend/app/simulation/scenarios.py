@@ -159,7 +159,8 @@ class ScenarioDefinition:
         cloud_event_step_end: Optional[int] = None,
         demand_spike_factor: float = 1.0,
         solar_modifier: float = 1.0,
-        transformer_capacity_kw: float = 120.0
+        transformer_capacity_kw: float = 120.0,
+        highlight_step: int = 74
     ):
         self.name = name
         self.title = title
@@ -171,6 +172,7 @@ class ScenarioDefinition:
         self.demand_spike_factor = demand_spike_factor
         self.solar_modifier = solar_modifier
         self.transformer_capacity_kw = transformer_capacity_kw
+        self.highlight_step = highlight_step
 
 SCENARIOS: Dict[str, ScenarioDefinition] = {
     "normal_day": ScenarioDefinition(
@@ -180,7 +182,8 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
         initial_battery_soc=70.0,
         weather_pattern=WeatherCondition.SUNNY,
         solar_modifier=1.0,
-        demand_spike_factor=1.0
+        demand_spike_factor=1.0,
+        highlight_step=48  # 12:00 Noon
     ),
     "evening_peak": ScenarioDefinition(
         name="evening_peak",
@@ -189,7 +192,8 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
         initial_battery_soc=75.0,
         weather_pattern=WeatherCondition.SUNNY,
         solar_modifier=1.0,
-        demand_spike_factor=1.25
+        demand_spike_factor=1.25,
+        highlight_step=74  # 18:30
     ),
     "cloud_cover_peak": ScenarioDefinition(
         name="cloud_cover_peak",
@@ -200,7 +204,8 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
         cloud_event_step_start=74,  # 18:30
         cloud_event_step_end=88,    # 22:00
         solar_modifier=1.0,
-        demand_spike_factor=1.35
+        demand_spike_factor=1.35,
+        highlight_step=74  # 18:30
     ),
     "solar_surplus": ScenarioDefinition(
         name="solar_surplus",
@@ -209,7 +214,8 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
         initial_battery_soc=45.0,
         weather_pattern=WeatherCondition.SUNNY,
         solar_modifier=1.4,
-        demand_spike_factor=0.9
+        demand_spike_factor=0.9,
+        highlight_step=48  # 12:00 Noon
     ),
     "battery_low_soc": ScenarioDefinition(
         name="battery_low_soc",
@@ -220,7 +226,8 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
         cloud_event_step_start=74,
         cloud_event_step_end=86,
         solar_modifier=0.9,
-        demand_spike_factor=1.2
+        demand_spike_factor=1.2,
+        highlight_step=74  # 18:30
     ),
     "grid_emergency": ScenarioDefinition(
         name="grid_emergency",
@@ -232,6 +239,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
         cloud_event_step_end=92,
         solar_modifier=0.4,
         demand_spike_factor=1.6,
-        transformer_capacity_kw=110.0
+        transformer_capacity_kw=110.0,
+        highlight_step=75  # 18:45
     )
 }

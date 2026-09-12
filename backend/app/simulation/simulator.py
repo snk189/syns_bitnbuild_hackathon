@@ -47,6 +47,44 @@ class MicrogridSimulator:
         self.households = get_default_households()
         self.evs = get_default_evs()
         self.solar_producers = get_default_solar_producers()
+        self.executed_trades = [
+            P2PTrade(
+                trade_id="TRD_BASE_01",
+                step=0,
+                time_str="00:00",
+                seller_id="SOLAR_COMMUNITY_ROOF",
+                buyer_id="HOUSE_02",
+                power_kw=3.2,
+                energy_kwh=0.8,
+                price_kwh=8.5,
+                total_value=6.8,
+                status="EXECUTED"
+            ),
+            P2PTrade(
+                trade_id="TRD_BASE_02",
+                step=0,
+                time_str="00:00",
+                seller_id="SOLAR_FARM_MAIN",
+                buyer_id="HOUSE_05",
+                power_kw=4.0,
+                energy_kwh=1.0,
+                price_kwh=8.2,
+                total_value=8.2,
+                status="EXECUTED"
+            ),
+            P2PTrade(
+                trade_id="TRD_BASE_03",
+                step=0,
+                time_str="00:00",
+                seller_id="SOLAR_FARM_MAIN",
+                buyer_id="HOUSE_08",
+                power_kw=2.8,
+                energy_kwh=0.7,
+                price_kwh=8.5,
+                total_value=5.95,
+                status="EXECUTED"
+            )
+        ]
 
     def reset(self, scenario_name: Optional[str] = None):
         if scenario_name:
