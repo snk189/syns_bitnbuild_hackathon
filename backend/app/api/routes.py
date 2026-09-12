@@ -136,11 +136,24 @@ async def reset_simulation(req: Optional[ScenarioSelectRequest] = None):
     while global_sim.current_step < target_step:
         state = global_orchestrator.step()
 
+    bus = MessageBus.get_instance()
+    sc_meta = SCENARIOS.get(scenario_to_use, SCENARIOS["cloud_cover_peak"])
+    if req is not None:
+        bus.publish(
+            step=state.step,
+            time_str=state.time_str,
+            sender="GridAgent",
+            receiver="ALL",
+            message_type="SCENARIO_LOADED",
+            priority="HIGH",
+            content=f"🔄 Operational profile loaded: {sc_meta.title}. Weather: {sc_meta.weather_pattern.value.upper()}. Battery reserve lock: {sc_meta.initial_battery_soc}%.",
+            action_requested="CALIBRATE_DISPATCH_ENVELOPE",
+            reasoning=f"{sc_meta.description} Multi-agent coordination matrix re-indexed."
+        )
     metrics = global_sim.get_metrics(mode="GRIDMIND")
     await broadcast_state_update(state, metrics)
-    bus = MessageBus.get_instance()
-    recent_msgs = bus.get_recent_messages(12)
-    recent_decisions = global_orchestrator.memory.get_recent_decisions(6)
+    recent_msgs = bus.get_recent_messages(20)
+    recent_decisions = global_orchestrator.memory.get_recent_decisions(8)
     recent_trades = [t.model_dump() if hasattr(t, "model_dump") else t for t in global_sim.executed_trades[-30:]]
     return {
         "status": "RESET",

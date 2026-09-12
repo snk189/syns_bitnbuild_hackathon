@@ -47,6 +47,9 @@ class MicrogridSimulator:
         self.households = get_default_households()
         self.evs = get_default_evs()
         self.solar_producers = get_default_solar_producers()
+        self._seed_baseline_trades()
+
+    def _seed_baseline_trades(self):
         self.executed_trades = [
             P2PTrade(
                 trade_id="TRD_BASE_01",
@@ -103,7 +106,7 @@ class MicrogridSimulator:
         self.p2p_trade_count = 0
         self.grid_violations_count = 0
         self.flexible_loads_shifted_count = 0
-        self.executed_trades = []
+        self._seed_baseline_trades()
         self.history = []
         self._initialize_assets()
 

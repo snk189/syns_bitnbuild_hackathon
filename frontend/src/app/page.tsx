@@ -178,10 +178,11 @@ export default function DashboardPage() {
         const data = await res.json();
         if (data.state) setGridState(data.state);
         if (data.metrics) setMetrics(data.metrics);
+        if (data.messages && data.messages.length > 0) setMessages(data.messages);
+        if (data.decisions && data.decisions.length > 0) setDecisions(data.decisions);
+        if (data.trades && data.trades.length > 0) setTrades(data.trades);
         setIsRunning(false);
         setCrisisTriggered(false);
-        setMessages([]);
-        setTrades([]);
       }
     } catch (e) {
       console.error("Reset error", e);
@@ -213,11 +214,12 @@ export default function DashboardPage() {
         const data = await res.json();
         if (data.state) setGridState(data.state);
         if (data.metrics) setMetrics(data.metrics);
+        if (data.messages && data.messages.length > 0) setMessages(data.messages);
+        if (data.decisions && data.decisions.length > 0) setDecisions(data.decisions);
+        if (data.trades && data.trades.length > 0) setTrades(data.trades);
       }
       setIsRunning(false);
       setCrisisTriggered(false);
-      setMessages([]);
-      setTrades([]);
     } catch (e) {
       console.error("Scenario change error", e);
     }
