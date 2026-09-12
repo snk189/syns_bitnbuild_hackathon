@@ -43,14 +43,19 @@ export const AgentActivityFeed: React.FC<AgentActivityFeedProps> = ({ messages }
 
   return (
     <div className="glass-panel rounded-2xl p-4 flex flex-col h-[340px]">
-      <div className="flex justify-between items-center pb-2.5 mb-2.5 border-b border-slate-800/80">
-        <div className="flex items-center space-x-2">
-          <Bot className="w-5 h-5 text-cyan-400" />
-          <h3 className="text-sm font-bold tracking-wider uppercase text-slate-200">
-            Autonomous Agent Communication & Negotiation Feed
-          </h3>
+      <div className="flex justify-between items-start pb-2.5 mb-2.5 border-b border-slate-800/80">
+        <div>
+          <div className="flex items-center space-x-2">
+            <Bot className="w-5 h-5 text-cyan-400" />
+            <h3 className="text-sm font-bold tracking-wider uppercase text-slate-100">
+              Autonomous Agent Negotiation Feed
+            </h3>
+          </div>
+          <p className="text-[11px] text-slate-400 mt-0.5">
+            Real-time logs showing what agents decide and why they take action
+          </p>
         </div>
-        <span className="text-[11px] font-mono text-slate-400 bg-slate-900/80 px-2 py-0.5 rounded-md border border-slate-800">
+        <span className="text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/50 px-2 py-0.5 rounded-md border border-cyan-800/60 shrink-0">
           Live Inter-Agent Bus
         </span>
       </div>

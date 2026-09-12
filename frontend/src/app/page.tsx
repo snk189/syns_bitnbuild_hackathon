@@ -10,6 +10,7 @@ import { AgentActivityFeed } from "../components/AgentActivityFeed";
 import { P2PTradingLedger } from "../components/P2PTradingLedger";
 import { AgentDecisionAudit } from "../components/AgentDecisionAudit";
 import { ComparisonModal } from "../components/ComparisonModal";
+import { WhatIfPlannerModal } from "../components/WhatIfPlannerModal";
 import { EventTimeline } from "../components/EventTimeline";
 import { GridState, SimulationMetrics, ScenarioInfo, AgentMessage, AgentDecisionLog, P2PTrade } from "../types";
 
@@ -28,6 +29,7 @@ export default function DashboardPage() {
   const [speed, setSpeed] = useState(1);
   const [crisisTriggered, setCrisisTriggered] = useState(false);
   const [isComparisonOpen, setIsComparisonOpen] = useState(false);
+  const [isWhatIfOpen, setIsWhatIfOpen] = useState(false);
   const [bottomTab, setBottomTab] = useState<"p2p" | "audit">("p2p");
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -259,6 +261,14 @@ export default function DashboardPage() {
     }
   };
 
+  const handlePlanExecuted = (data: any) => {
+    if (data.state) setGridState(data.state);
+    if (data.metrics) setMetrics(data.metrics);
+    if (data.messages && data.messages.length > 0) setMessages(data.messages);
+    if (data.decisions && data.decisions.length > 0) setDecisions(data.decisions);
+    if (data.trades && data.trades.length > 0) setTrades(data.trades);
+  };
+
   const activeScenarioObj = scenarios.find((s) => s.id === currentScenario);
 
   return (
@@ -279,6 +289,7 @@ export default function DashboardPage() {
         onScenarioChange={handleScenarioChange}
         onTriggerCrisis={handleTriggerCrisis}
         onOpenComparison={() => setIsComparisonOpen(true)}
+        onOpenWhatIf={() => setIsWhatIfOpen(true)}
       />
 
       {/* Main Dashboard Body */}
@@ -308,11 +319,19 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Quick Moment Jumps */}
-          <div className="flex items-center space-x-2 shrink-0 bg-slate-950/70 p-1.5 rounded-xl border border-slate-800">
+          {/* Quick Actions & What-If Planner */}
+          <div className="flex items-center space-x-2 shrink-0 bg-slate-950/70 p-1.5 rounded-xl border border-slate-800 flex-wrap gap-y-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
-              Jump To:
+              Actions:
             </span>
+            <button
+              onClick={() => setIsWhatIfOpen(true)}
+              className="px-3 py-1 text-xs font-black rounded-lg bg-gradient-to-r from-cyan-500/25 via-indigo-500/25 to-purple-500/25 hover:from-cyan-500/40 hover:to-purple-500/40 text-cyan-200 border border-cyan-400/50 shadow-md ring-1 ring-cyan-400/30 transition-all flex items-center space-x-1.5"
+              title="Autonomous What-If Scenario Planning Agent"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
+              <span>🧠 Plan 30m What-If</span>
+            </button>
             <button
               onClick={() => handleJumpTo(48)}
               className="px-2.5 py-1 text-xs font-bold rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 transition-all flex items-center space-x-1"
@@ -404,6 +423,14 @@ export default function DashboardPage() {
         isOpen={isComparisonOpen}
         onClose={() => setIsComparisonOpen(false)}
         scenario={currentScenario}
+      />
+
+      {/* Autonomous What-If Scenario Planning Modal */}
+      <WhatIfPlannerModal
+        isOpen={isWhatIfOpen}
+        onClose={() => setIsWhatIfOpen(false)}
+        onPlanExecuted={handlePlanExecuted}
+        backendUrl={BACKEND_URL}
       />
     </div>
   );

@@ -174,3 +174,54 @@ export interface ScenarioInfo {
   initial_battery_soc: number;
   demand_multiplier: number;
 }
+
+export interface CandidateStrategy {
+  id: string;
+  name: string;
+  description: string;
+  projected_transformer_kw: number;
+  overload_risk: string;
+  projected_cost: number;
+  ending_battery_soc: number;
+  ev_readiness_pct: number;
+  renewable_utilization_pct: number;
+  p2p_energy_kwh: number;
+  status: string;
+  status_label: string;
+}
+
+export interface DebateMessage {
+  agent_name: string;
+  agent_avatar: string;
+  dialogue: string;
+  stance: "OFFER" | "CONSTRAINT" | "PROPOSAL" | "VALIDATION" | "CONSENSUS";
+}
+
+export interface DecisionNode {
+  step_order: number;
+  agent: string;
+  action: string;
+  detail: string;
+  impact: string;
+}
+
+export interface WhatIfEvaluationResult {
+  scenario_id: string;
+  scenario_title: string;
+  horizon_minutes: number;
+  current_time_str: string;
+  target_time_str: string;
+  risk_summary: string;
+  baseline_projected_load_kw: number;
+  strategies: CandidateStrategy[];
+  recommended_strategy_id: string;
+  agent_debate: DebateMessage[];
+  decision_chain: DecisionNode[];
+  executable_action: {
+    battery_action_kw: number;
+    flexible_reduction_pct: number;
+    ev_deferred_count: number;
+    p2p_volume_kwh: number;
+    projected_cost_savings: number;
+  };
+}

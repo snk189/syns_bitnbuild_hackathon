@@ -8,6 +8,7 @@ from ..simulation.baseline import BaselineSimulator, compare_metrics
 from ..simulation.scenarios import SCENARIOS
 from ..simulation.models import GridState, SimulationMetrics, SimulationComparison, P2PTrade, AgentMessage
 from ..agents.orchestrator import MultiAgentOrchestrator
+from ..agents.what_if_planner import WhatIfPlanningAgent
 from ..communication.message_bus import MessageBus
 
 router = APIRouter(prefix="/api")
@@ -17,6 +18,7 @@ global_sim = MicrogridSimulator(scenario_name="cloud_cover_peak")
 global_orchestrator = MultiAgentOrchestrator(global_sim)
 sim_task: Optional[asyncio.Task] = None
 active_websockets: List[WebSocket] = []
+what_if_planner = WhatIfPlanningAgent()
 
 class ScenarioSelectRequest(BaseModel):
     scenario: str
@@ -26,6 +28,14 @@ class SpeedRequest(BaseModel):
 
 class RunCompareRequest(BaseModel):
     scenario: Optional[str] = None
+
+class WhatIfRequest(BaseModel):
+    scenario_id: str = "cloud_drop"
+    horizon_minutes: int = 30
+
+class PlanExecuteRequest(BaseModel):
+    scenario_id: str
+    plan_id: str
 
 @router.get("/health")
 def health_check():
@@ -227,6 +237,75 @@ async def trigger_crisis():
     metrics = global_sim.get_metrics(mode="GRIDMIND")
     await broadcast_state_update(state, metrics)
     return {"status": "CRISIS_TRIGGERED", "step": global_sim.current_step, "state": state, "metrics": metrics}
+
+@router.post("/planning/what-if")
+def evaluate_what_if_plan(req: WhatIfRequest):
+    result = what_if_planner.evaluate(
+        sim=global_sim,
+        scenario_id=req.scenario_id,
+        horizon_minutes=req.horizon_minutes
+    )
+    return result
+
+@router.post("/planning/execute")
+async def execute_what_if_plan(req: PlanExecuteRequest):
+    eval_result = what_if_planner.evaluate(
+        sim=global_sim,
+        scenario_id=req.scenario_id,
+        horizon_minutes=30
+    )
+    action = eval_result.executable_action
+    
+    trade_id = f"TRD_WHATIF_{global_sim.current_step:02d}"
+    trade = P2PTrade(
+        trade_id=trade_id,
+        step=global_sim.current_step,
+        time_str=global_sim.step_to_time_str(global_sim.current_step),
+        seller_id="COMMUNITY_BESS",
+        buyer_id="PROSUMER_COLLECTIVE",
+        power_kw=abs(action["battery_action_kw"]),
+        energy_kwh=action["p2p_volume_kwh"],
+        price_kwh=8.2,
+        total_value=round(action["p2p_volume_kwh"] * 8.2, 2),
+        status="EXECUTED"
+    )
+    global_sim.executed_trades.append(trade)
+    global_sim.p2p_energy_traded_kwh += action["p2p_volume_kwh"]
+    global_sim.p2p_trade_count += 1
+    
+    bus = MessageBus.get_instance()
+    bus.publish(
+        step=global_sim.current_step,
+        time_str=global_sim.step_to_time_str(global_sim.current_step),
+        sender="MarketAgent",
+        receiver="ALL",
+        message_type="WHAT_IF_CONSENSUS_EXECUTED",
+        priority="HIGH",
+        content=f"🎯 WHAT-IF PLAN EXECUTED: Dispatched {abs(action['battery_action_kw'])} kW BESS, shifted 25% flexible load, and cleared {action['p2p_volume_kwh']} kWh P2P at ₹8.20/kWh.",
+        action_requested="COMMIT_DISPATCH",
+        reasoning=f"Proactively mitigated projected shock ({eval_result.scenario_title}). Estimated operating cost saved: ₹{action['projected_cost_savings']}."
+    )
+    
+    state = global_orchestrator.step()
+    metrics = global_sim.get_metrics(mode="GRIDMIND")
+    await broadcast_state_update(state, metrics)
+    
+    recent_msgs = bus.get_recent_messages(20)
+    recent_decisions = global_orchestrator.memory.get_recent_decisions(8)
+    recent_trades = [t.model_dump() if hasattr(t, "model_dump") else t for t in global_sim.executed_trades[-30:]]
+    
+    return {
+        "status": "PLAN_EXECUTED",
+        "scenario_title": eval_result.scenario_title,
+        "step": state.step,
+        "time": state.time_str,
+        "state": state,
+        "metrics": metrics,
+        "messages": recent_msgs,
+        "decisions": recent_decisions,
+        "trades": recent_trades,
+        "summary": f"Autonomous Plan Executed: {abs(action['battery_action_kw'])} kW BESS discharge committed; {action['p2p_volume_kwh']} kWh P2P traded. Microgrid headroom secure."
+    }
 
 @router.get("/simulation/compare")
 def get_comparison(scenario: Optional[str] = None):

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Play, Pause, SkipForward, RotateCcw, AlertOctagon, BarChart2, Zap, Clock } from "lucide-react";
+import { Play, Pause, SkipForward, RotateCcw, AlertOctagon, BarChart2, Zap, Clock, Bot } from "lucide-react";
 import { ScenarioInfo } from "../types";
 
 interface HeaderProps {
@@ -19,6 +19,7 @@ interface HeaderProps {
   onScenarioChange: (scenario: string) => void;
   onTriggerCrisis: () => void;
   onOpenComparison: () => void;
+  onOpenWhatIf: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -36,6 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
   onScenarioChange,
   onTriggerCrisis,
   onOpenComparison,
+  onOpenWhatIf,
 }) => {
   return (
     <header className="w-full glass-panel border-b border-slate-800/80 px-4 lg:px-6 py-3 sticky top-0 z-40">
@@ -131,8 +133,16 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Action Buttons: Trigger Crisis & Comparison */}
+        {/* Action Buttons: What-If, Trigger Crisis & Comparison */}
         <div className="flex items-center space-x-2.5">
+          <button
+            onClick={onOpenWhatIf}
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-cyan-500/20 via-indigo-500/20 to-purple-500/20 hover:from-cyan-500/30 hover:to-purple-500/30 text-cyan-200 border border-cyan-400/40 hover:border-cyan-300 transition-all shadow-md ring-1 ring-cyan-400/20"
+          >
+            <Bot className="w-4 h-4 text-cyan-300 animate-pulse" />
+            <span>🧠 What-If Planner</span>
+          </button>
+
           <button
             onClick={onTriggerCrisis}
             className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-black tracking-wide uppercase transition-all shadow-lg ${
