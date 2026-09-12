@@ -1,8 +1,35 @@
 "use client";
 
 import React from "react";
-import { Play, Pause, SkipForward, RotateCcw, AlertOctagon, BarChart2, Zap, Clock, Bot, Sparkles, Key } from "lucide-react";
+import {
+  Play,
+  Pause,
+  SkipForward,
+  RotateCcw,
+  AlertOctagon,
+  BarChart2,
+  Zap,
+  Clock,
+  Bot,
+  Sparkles,
+  Key,
+  Shield,
+  LogOut,
+  Sliders,
+  Layers,
+  Activity,
+  Cpu,
+  Compass,
+} from "lucide-react";
 import { ScenarioInfo } from "../types";
+
+export type AdminTab =
+  | "dashboard"
+  | "simulation"
+  | "agents"
+  | "energy_sources"
+  | "scenarios"
+  | "analytics";
 
 interface HeaderProps {
   timeStr: string;
@@ -12,8 +39,8 @@ interface HeaderProps {
   currentScenario: string;
   scenarios: ScenarioInfo[];
   crisisTriggered: boolean;
-  activeTab?: "dashboard" | "decisions" | "trading";
-  onTabChange?: (tab: "dashboard" | "decisions" | "trading") => void;
+  activeTab?: AdminTab;
+  onTabChange?: (tab: AdminTab) => void;
   isAIOpen?: boolean;
   onToggleAI?: () => void;
   onOpenAIConfig?: () => void;
@@ -26,6 +53,8 @@ interface HeaderProps {
   onTriggerCrisis: () => void;
   onOpenComparison: () => void;
   onOpenWhatIf: () => void;
+  userName?: string;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -50,83 +79,102 @@ export const Header: React.FC<HeaderProps> = ({
   onTriggerCrisis,
   onOpenComparison,
   onOpenWhatIf,
+  userName = "admin",
+  onLogout,
 }) => {
+  const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
+    { id: "dashboard", label: "Dashboard", icon: <Layers className="w-3.5 h-3.5" /> },
+    { id: "simulation", label: "Live Simulation", icon: <Activity className="w-3.5 h-3.5" /> },
+    { id: "agents", label: "Agent Decisions", icon: <Cpu className="w-3.5 h-3.5" /> },
+    { id: "energy_sources", label: "Energy Sources", icon: <Sliders className="w-3.5 h-3.5 text-amber-400" /> },
+    { id: "scenarios", label: "Scenarios", icon: <Compass className="w-3.5 h-3.5" /> },
+    { id: "analytics", label: "Analytics", icon: <BarChart2 className="w-3.5 h-3.5" /> },
+  ];
+
   return (
-    <header className="w-full glass-panel border-b border-slate-800/80 px-4 lg:px-6 py-3 sticky top-0 z-40">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        {/* Brand & Main Navigation Tabs */}
-        <div className="flex items-center space-x-5 flex-wrap gap-y-2">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-              <Zap className="w-6 h-6 text-white animate-pulse" />
+    <header className="w-full glass-panel border-b border-slate-800/80 px-4 lg:px-6 py-2.5 sticky top-0 z-40 bg-[#050811]/90 backdrop-blur-md">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Brand & Mode Tag */}
+        <div className="flex items-center space-x-3">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 via-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 shrink-0">
+            <Zap className="w-5 h-5 text-white animate-pulse" />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <h1 className="text-lg font-extrabold tracking-wider bg-gradient-to-r from-emerald-400 via-cyan-300 to-indigo-300 bg-clip-text text-transparent">
+                GRIDMIND
+              </h1>
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                Control Center
+              </span>
             </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h1 className="text-xl font-extrabold tracking-wider bg-gradient-to-r from-emerald-400 via-cyan-300 to-indigo-300 bg-clip-text text-transparent">
-                  GRIDMIND
-                </h1>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-                  Autonomous Microgrid
-                </span>
-              </div>
-              <p className="text-xs text-slate-400">Decentralized Energy & P2P Trading</p>
-            </div>
+            <p className="text-[11px] text-slate-400">Autonomous Multi-Agent Microgrid</p>
+          </div>
+        </div>
+
+        {/* 6 Clean Admin Navigation Tabs */}
+        {onTabChange && (
+          <nav className="flex items-center bg-slate-950/90 border border-slate-800/90 rounded-2xl p-1 shadow-inner overflow-x-auto max-w-full">
+            {tabs.map((t) => {
+              const isActive = activeTab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => onTabChange(t.id)}
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                    isActive
+                      ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/50"
+                  }`}
+                >
+                  {t.icon}
+                  <span>{t.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        )}
+
+        {/* User Identity & Logout */}
+        <div className="flex items-center space-x-2.5">
+          <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-800 text-xs">
+            <Shield className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="text-slate-400 font-mono text-[11px]">Role:</span>
+            <span className="font-bold text-cyan-300 capitalize">{userName}</span>
           </div>
 
-          {/* Top-Level Navigation: Dashboard | Agent Decisions | Trading */}
-          {onTabChange && (
-            <div className="flex items-center bg-slate-950/90 border border-slate-800/90 rounded-2xl p-1 shadow-inner">
-              <button
-                onClick={() => onTabChange("dashboard")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === "dashboard"
-                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
-                    : "text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                Dashboard
-              </button>
-              <button
-                onClick={() => onTabChange("decisions")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === "decisions"
-                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
-                    : "text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                Agent Decisions
-              </button>
-              <button
-                onClick={() => onTabChange("trading")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === "trading"
-                    ? "bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm"
-                    : "text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                Trading
-              </button>
-            </div>
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-slate-800 hover:border-rose-500/30 text-xs font-semibold transition-all"
+              title="Return to Login Screen"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
           )}
         </div>
+      </div>
 
+      {/* Sub-Bar: Quick Simulation Controls & Scenario Info */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mt-2 pt-2 border-t border-slate-800/50 text-xs">
         {/* Simulation Clock & Progress */}
-        <div className="flex items-center space-x-3 bg-slate-900/90 border border-slate-800 px-3.5 py-1.5 rounded-xl">
-          <Clock className="w-4 h-4 text-cyan-400" />
-          <div className="flex items-baseline space-x-2">
-            <span className="text-lg font-mono font-bold text-slate-100">{timeStr || "00:00"}</span>
-            <span className="text-xs font-mono text-slate-400">
-              Step {step} / 96 ({(step * 15) % 60 === 0 ? "Hour " + Math.floor((step * 15) / 60) : ""})
-            </span>
-          </div>
+        <div className="flex items-center space-x-2.5 bg-slate-900/80 border border-slate-800 px-3 py-1 rounded-xl">
+          <Clock className="w-3.5 h-3.5 text-cyan-400" />
+          <span className="font-mono font-bold text-slate-100">{timeStr || "00:00"}</span>
+          <span className="text-slate-500 font-mono">|</span>
+          <span className="font-mono text-slate-400 text-[11px]">
+            Step {step} / 96 ({(step * 15) % 60 === 0 ? "Hr " + Math.floor((step * 15) / 60) : ""})
+          </span>
         </div>
 
-        {/* Scenario Selector */}
+        {/* Quick Scenario Selector */}
         <div className="flex items-center space-x-2">
+          <span className="text-slate-400 text-[11px] hidden sm:inline font-semibold">Scenario:</span>
           <select
             value={currentScenario}
             onChange={(e) => onScenarioChange(e.target.value)}
-            className="bg-slate-900/90 border border-slate-700/80 text-xs font-semibold text-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-cyan-500 cursor-pointer max-w-[220px] md:max-w-xs truncate"
+            className="bg-slate-900/90 border border-slate-700/80 text-xs font-semibold text-slate-200 rounded-xl px-2.5 py-1 focus:outline-none focus:border-cyan-500 cursor-pointer max-w-[200px] md:max-w-xs truncate"
           >
             {scenarios.map((sc) => (
               <option key={sc.id} value={sc.id} className="bg-slate-900 text-slate-200">
@@ -136,17 +184,17 @@ export const Header: React.FC<HeaderProps> = ({
           </select>
         </div>
 
-        {/* Simulation Playback Controls */}
-        <div className="flex items-center space-x-2">
+        {/* Simulation Controls: Play, Step, Reset, Speed */}
+        <div className="flex items-center space-x-1.5">
           <button
             onClick={onPlayPause}
-            className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-md ${
+            className={`flex items-center space-x-1 px-3 py-1 rounded-xl text-xs font-bold transition-all shadow-md ${
               isRunning
                 ? "bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 glow-amber"
                 : "bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 glow-emerald"
             }`}
           >
-            {isRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-current" />}
+            {isRunning ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current" />}
             <span>{isRunning ? "PAUSE" : "START"}</span>
           </button>
 
@@ -154,26 +202,26 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onStep}
             disabled={isRunning}
             title="Advance 15-Minute Step"
-            className="p-2 rounded-xl text-slate-300 bg-slate-900 border border-slate-800 hover:border-slate-700 hover:text-white disabled:opacity-40 transition-colors"
+            className="p-1.5 rounded-xl text-slate-300 bg-slate-900 border border-slate-800 hover:border-slate-700 hover:text-white disabled:opacity-40 transition-colors"
           >
-            <SkipForward className="w-4 h-4" />
+            <SkipForward className="w-3.5 h-3.5" />
           </button>
 
           <button
             onClick={onReset}
             title="Reset Simulation"
-            className="p-2 rounded-xl text-slate-300 bg-slate-900 border border-slate-800 hover:border-slate-700 hover:text-white transition-colors"
+            className="p-1.5 rounded-xl text-slate-300 bg-slate-900 border border-slate-800 hover:border-slate-700 hover:text-white transition-colors"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-3.5 h-3.5" />
           </button>
 
           {/* Speed Selector */}
-          <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-0.5 text-[11px] font-bold">
+          <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-0.5 text-[10px] font-bold">
             {[1, 2, 5].map((s) => (
               <button
                 key={s}
                 onClick={() => onSpeedChange(s)}
-                className={`px-2 py-1 rounded-lg transition-colors ${
+                className={`px-1.5 py-0.5 rounded-lg transition-colors ${
                   speed === s ? "bg-cyan-500/20 text-cyan-300 font-extrabold" : "text-slate-400 hover:text-slate-200"
                 }`}
               >
@@ -183,66 +231,62 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Action Buttons: What-If, AI Copilot, Trigger Crisis & Comparison */}
-        <div className="flex items-center space-x-2">
-          {/* AI Key Status Button */}
+        {/* Action Tools: AI, What-If, Crisis, Compare */}
+        <div className="flex items-center space-x-1.5">
           {onOpenAIConfig && (
             <button
               onClick={onOpenAIConfig}
-              title={isAIConfigured ? "OpenAI API Configured (Click to change)" : "Configure OpenAI API Key"}
-              className={`flex items-center space-x-1 px-2.5 py-2 rounded-xl text-xs font-semibold border transition-all ${
+              title={isAIConfigured ? "OpenAI Configured" : "Set OpenAI API Key"}
+              className={`p-1.5 rounded-xl border transition-all ${
                 isAIConfigured
                   ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
                   : "bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20"
               }`}
             >
               <Key className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{isAIConfigured ? "AI Ready" : "Set Key"}</span>
             </button>
           )}
 
-          {/* AI Copilot Toggle */}
           {onToggleAI && (
             <button
               onClick={onToggleAI}
-              className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-md ${
+              className={`flex items-center space-x-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all shadow-sm ${
                 isAIOpen
-                  ? "bg-gradient-to-r from-cyan-500 to-indigo-600 text-white shadow-cyan-500/25 ring-2 ring-cyan-400"
-                  : "bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 glow-cyan"
+                  ? "bg-gradient-to-r from-cyan-500 to-indigo-600 text-white"
+                  : "bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30"
               }`}
             >
-              <Sparkles className={`w-4 h-4 ${isAIOpen ? "animate-spin" : "animate-pulse"}`} />
-              <span>AI Copilot</span>
+              <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
+              <span className="hidden md:inline">AI Copilot</span>
             </button>
           )}
 
           <button
             onClick={onOpenWhatIf}
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-cyan-500/20 via-indigo-500/20 to-purple-500/20 hover:from-cyan-500/30 hover:to-purple-500/30 text-cyan-200 border border-cyan-400/40 hover:border-cyan-300 transition-all shadow-md ring-1 ring-cyan-400/20"
+            className="flex items-center space-x-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-400/40 transition-all shadow-sm"
           >
-            <Bot className="w-4 h-4 text-cyan-300 animate-pulse" />
-            <span>🧠 What-If Planner</span>
+            <Bot className="w-3.5 h-3.5 text-purple-300" />
+            <span className="hidden md:inline">What-If</span>
           </button>
 
           <button
             onClick={onTriggerCrisis}
-            className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-black tracking-wide uppercase transition-all shadow-lg ${
+            className={`flex items-center space-x-1 px-2.5 py-1 rounded-xl text-xs font-black transition-all shadow-sm ${
               crisisTriggered
-                ? "bg-rose-600 text-white glow-rose animate-pulse border border-rose-400"
-                : "bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 hover:border-rose-400"
+                ? "bg-rose-600 text-white animate-pulse"
+                : "bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30"
             }`}
           >
-            <AlertOctagon className="w-4 h-4" />
-            <span>⚡ Trigger Crisis</span>
+            <AlertOctagon className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Crisis</span>
           </button>
 
           <button
             onClick={onOpenComparison}
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 hover:border-indigo-400 transition-all shadow-md"
+            className="flex items-center space-x-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 transition-all shadow-sm"
           >
-            <BarChart2 className="w-4 h-4 text-indigo-400" />
-            <span className="hidden md:inline">Baseline vs GridMind</span>
-            <span className="md:hidden">Compare</span>
+            <BarChart2 className="w-3.5 h-3.5 text-indigo-400" />
+            <span className="hidden md:inline">Compare</span>
           </button>
         </div>
       </div>

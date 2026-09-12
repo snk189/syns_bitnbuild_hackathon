@@ -118,6 +118,10 @@ export interface GridState {
   households: HouseholdState[];
   evs: EVState[];
   solar_producers: SolarProducerState[];
+  solar_generation_kw?: number;
+  battery_soc_pct?: number;
+  total_load_kw?: number;
+  current_decision?: GridMindDecisionSummary;
 }
 
 export interface SimulationMetrics {
@@ -136,6 +140,12 @@ export interface SimulationMetrics {
   grid_violations_count: number;
   flexible_loads_shifted_count: number;
   estimated_co2_kg: number;
+  total_cost_inr?: number;
+  baseline_cost_inr?: number;
+  total_demand_kwh?: number;
+  co2_saved_kg?: number;
+  total_co2_kg?: number;
+  peak_transformer_load_pct?: number;
 }
 
 export interface SimulationComparison {
@@ -275,3 +285,16 @@ export interface MarketOrder {
   priority?: string;
   status: "ACTIVE" | "EXECUTED" | "CANCELLED";
 }
+
+export interface GridMindDecisionSummary {
+  battery_action: string;
+  battery_kw: number;
+  grid_action: string;
+  grid_kw: number;
+  p2p_action: string;
+  p2p_kwh: number;
+  flexible_action: string;
+  ev_action: string;
+  why_points: string[];
+}
+

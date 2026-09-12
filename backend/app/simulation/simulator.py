@@ -34,6 +34,10 @@ class MicrogridSimulator:
 
         # State storage
         self.history: List[GridState] = []
+        # Interactive overrides (Admin manipulation)
+        self.solar_override_kw: Optional[float] = None
+        self.demand_override_kw: Optional[float] = None
+        self.transformer_capacity_override_kw: Optional[float] = None
         self._initialize_assets()
 
     def _initialize_assets(self):
@@ -106,6 +110,9 @@ class MicrogridSimulator:
         self.p2p_trade_count = 0
         self.grid_violations_count = 0
         self.flexible_loads_shifted_count = 0
+        self.solar_override_kw = None
+        self.demand_override_kw = None
+        self.transformer_capacity_override_kw = None
         self._seed_baseline_trades()
         self.history = []
         self._initialize_assets()
@@ -121,6 +128,13 @@ class MicrogridSimulator:
         return f"{h:02d}:{m:02d}"
 
     def calculate_solar_irradiance(self, step: int) -> Tuple[float, WeatherCondition]:
+        # If admin specified a direct solar generation override, scale effective irradiance to match
+        if self.solar_override_kw is not None:
+            total_cap = sum(p.capacity_kw for p in self.solar_producers) or 65.0
+            eff_irradiance = (self.solar_override_kw / total_cap) * 1000.0
+            weather = WeatherCondition.OVERCAST if self.solar_override_kw < 12.0 else WeatherCondition.SUNNY
+            return max(0.0, eff_irradiance), weather
+
         # Sunrise ~ 06:00 (step 24), Sunset ~ 19:00 (step 76), solar noon ~ step 50
         if step < 24 or step > 76:
             return 0.0, WeatherCondition.SUNNY
@@ -146,6 +160,11 @@ class MicrogridSimulator:
         return max(0.0, base_irradiance * cloud_factor), weather
 
     def calculate_household_base_profile(self, step: int) -> float:
+        # If admin specified a direct community demand override, scale multiplier to match
+        if self.demand_override_kw is not None:
+            nominal_total = sum(h.base_load_kw + h.flexible_load_kw for h in self.households) or 47.3
+            return max(0.1, self.demand_override_kw / nominal_total)
+
         # Time of day residential curve multiplier (0.35 to 1.35)
         hour = (step * self.step_minutes) / 60.0
         if hour < 6.0:
@@ -293,7 +312,7 @@ class MicrogridSimulator:
         balance_error = abs(total_supply_kw - total_demand_kw)
 
         # 6. Electrical State: Transformer Loading, Voltage, Frequency
-        transformer_capacity = self.scenario.transformer_capacity_kw
+        transformer_capacity = self.transformer_capacity_override_kw if self.transformer_capacity_override_kw is not None else self.scenario.transformer_capacity_kw
         transformer_load_pct = (max(grid_import_kw, grid_export_kw) / transformer_capacity) * 100.0
 
         if transformer_load_pct >= 95.0:
@@ -362,6 +381,24 @@ class MicrogridSimulator:
         self.history.append(state)
         self.current_step += 1
         return state
+
+    def recalculate_current_state(self, orchestrator) -> GridState:
+        """
+        Re-evaluates the active step with overridden asset inputs, re-running the multi-agent
+        reasoning pipeline, optimizer, and safety layer, and replacing the latest history snapshot.
+        """
+        if self.history:
+            old_state = self.history.pop()
+            self.current_step = max(0, self.current_step - 1)
+            dt_hours = self.step_minutes / 60.0
+            self.total_grid_import_kwh = max(0.0, self.total_grid_import_kwh - (old_state.grid_import_kw * dt_hours))
+            self.total_solar_generated_kwh = max(0.0, self.total_solar_generated_kwh - (old_state.solar_total_kw * dt_hours))
+            self.total_energy_consumed_kwh = max(0.0, self.total_energy_consumed_kwh - (old_state.total_demand_kw * dt_hours))
+            old_cost = (old_state.grid_import_kw * dt_hours * 13.5) - (old_state.grid_export_kw * dt_hours * 4.0)
+            self.total_cost = max(0.0, self.total_cost - old_cost)
+
+        new_state = orchestrator.step()
+        return new_state
 
     def get_metrics(self, mode: str = "GRIDMIND") -> SimulationMetrics:
         renewable_utilized_kwh = self.total_solar_generated_kwh - self.total_solar_curtailed_kwh

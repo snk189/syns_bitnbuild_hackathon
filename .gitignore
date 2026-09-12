@@ -35,7 +35,10 @@ yarn-error.log*
 backend/.env
 frontend/.env*
 *.db
+*.db-wal
+*.db-shm
 *.sqlite3
+verify_demo_flow.py
 .DS_Store
 Thumbs.db
 

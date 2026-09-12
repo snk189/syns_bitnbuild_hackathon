@@ -45,6 +45,93 @@ class PlanExecuteRequest(BaseModel):
     scenario_id: str
     plan_id: str
 
+class SimulationOverrideRequest(BaseModel):
+    solar_kw: Optional[float] = None
+    battery_soc_pct: Optional[float] = None
+    demand_kw: Optional[float] = None
+    grid_capacity_kw: Optional[float] = None
+    reset_overrides: Optional[bool] = False
+
+def build_decision_summary(state: GridState, sim: MicrogridSimulator) -> Dict[str, Any]:
+    # 1. Battery Action
+    if state.battery_discharge_kw > 0.1:
+        batt_action = f"Discharge {state.battery_discharge_kw:.1f} kW"
+    elif state.battery_charge_kw > 0.1:
+        batt_action = f"Charge {state.battery_charge_kw:.1f} kW"
+    elif state.battery.soc_pct <= state.battery.min_reserve_soc_pct:
+        batt_action = f"Idle (Locked at {state.battery.soc_pct:.0f}% min reserve)"
+    else:
+        batt_action = "Standby (Preserving reserves)"
+
+    # 2. Grid Action
+    if state.grid_import_kw > 0.1:
+        grid_action = f"Import {state.grid_import_kw:.1f} kW (Transformer load: {state.transformer_load_pct:.0f}%)"
+    elif state.grid_export_kw > 0.1:
+        grid_action = f"Export {state.grid_export_kw:.1f} kW"
+    else:
+        grid_action = "Net-Zero Balanced (0.0 kW)"
+
+    # 3. P2P Trading Action
+    if state.p2p_volume_kwh > 0.05:
+        p2p_action = f"Transacted {state.p2p_volume_kwh:.1f} kWh @ ₹{state.p2p_clearing_price_kwh:.2f}/kWh"
+    else:
+        p2p_action = "0.0 kWh (No surplus cleared)"
+
+    # 4. Flexible Load Shifting
+    total_flex_shift = sum(h.current_reduction_kw for h in state.households)
+    if total_flex_shift > 0.1:
+        flex_action = f"Shift {total_flex_shift:.1f} kW flexible demand"
+    else:
+        flex_action = "0.0 kW (Standard schedule)"
+
+    # 5. EV Fleet Action
+    charging_evs = [ev for ev in state.evs if ev.is_charging]
+    delayed_evs = [ev for ev in state.evs if ev.is_delayed]
+    ev_action = f"{len(charging_evs)} charging ({state.ev_charging_total_kw:.1f} kW), {len(delayed_evs)} deferred"
+
+    # 6. Why did GridMind decide this? (Real agent reasoning points)
+    why_points = []
+    if state.solar_total_kw < 8.0:
+        why_points.append(f"Solar generation is low ({state.solar_total_kw:.1f} kW) due to cloud cover or nighttime.")
+    elif state.solar_total_kw > 25.0:
+        why_points.append(f"High solar generation ({state.solar_total_kw:.1f} kW) provides abundant clean local power.")
+    else:
+        why_points.append(f"Solar output steady at {state.solar_total_kw:.1f} kW.")
+
+    if state.total_demand_kw > 38.0:
+        why_points.append(f"Community demand is high at {state.total_demand_kw:.1f} kW during evening load peak.")
+    else:
+        why_points.append(f"Community demand is moderate at {state.total_demand_kw:.1f} kW.")
+
+    if state.battery.soc_pct <= state.battery.min_reserve_soc_pct:
+        why_points.append(f"Battery SOC is {state.battery.soc_pct:.0f}% (at or below 25% safety reserve threshold; discharge locked by Safety Layer).")
+    elif state.battery_discharge_kw > 0.1:
+        why_points.append(f"Battery SOC is healthy ({state.battery.soc_pct:.0f}%), actively discharging {state.battery_discharge_kw:.1f} kW to shave transformer peak.")
+    else:
+        why_points.append(f"Battery SOC is {state.battery.soc_pct:.0f}% (maintaining reserve readiness).")
+
+    if state.transformer_load_pct >= 85.0:
+        why_points.append(f"Substation transformer is heavily loaded ({state.transformer_load_pct:.0f}% of {state.transformer_capacity_kw:.0f} kW limit); multi-agent peak shaving activated.")
+    else:
+        why_points.append(f"Grid transformer operates safely at {state.transformer_load_pct:.0f}% loading.")
+
+    if state.p2p_volume_kwh > 0.05:
+        why_points.append(f"Local P2P energy market cleared {state.p2p_volume_kwh:.1f} kWh at ₹{state.p2p_clearing_price_kwh:.2f}/kWh (undercutting utility tariff ₹13.50/kWh).")
+    else:
+        why_points.append("Local prosumers are consuming their own generation directly.")
+
+    return {
+        "battery_action": batt_action,
+        "battery_kw": round(state.battery_discharge_kw if state.battery_discharge_kw > 0 else -state.battery_charge_kw, 1),
+        "grid_action": grid_action,
+        "grid_kw": round(state.grid_import_kw if state.grid_import_kw > 0 else -state.grid_export_kw, 1),
+        "p2p_action": p2p_action,
+        "p2p_kwh": state.p2p_volume_kwh,
+        "flexible_action": flex_action,
+        "ev_action": ev_action,
+        "why_points": why_points
+    }
+
 @router.get("/health")
 def health_check():
     return {
@@ -79,12 +166,14 @@ def get_current_state():
         state = global_sim.history[-1]
 
     metrics = global_sim.get_metrics(mode="GRIDMIND")
+    decision_summary = build_decision_summary(state, global_sim)
     return {
         "state": state,
         "metrics": metrics,
         "is_running": global_sim.is_running,
         "scenario": global_sim.scenario_name,
-        "crisis_triggered": global_sim.crisis_triggered
+        "crisis_triggered": global_sim.crisis_triggered,
+        "current_decision": decision_summary
     }
 
 @router.post("/simulation/step")
@@ -102,6 +191,7 @@ async def step_simulation():
     recent_msgs = bus.get_recent_messages(8)
     recent_decisions = global_orchestrator.memory.get_recent_decisions(5)
     recent_trades = [t.model_dump() if hasattr(t, "model_dump") else t for t in global_sim.executed_trades[-30:]]
+    decision_summary = build_decision_summary(state, global_sim)
 
     return {
         "status": "STEPPED",
@@ -111,7 +201,8 @@ async def step_simulation():
         "metrics": metrics,
         "messages": recent_msgs,
         "decisions": recent_decisions,
-        "trades": recent_trades
+        "trades": recent_trades,
+        "current_decision": decision_summary
     }
 
 @router.post("/simulation/start")
@@ -254,8 +345,70 @@ async def trigger_crisis():
         "metrics": metrics,
         "messages": recent_msgs,
         "decisions": recent_decisions,
-        "trades": recent_trades
+        "trades": recent_trades,
+        "current_decision": build_decision_summary(state, global_sim)
     }
+
+@router.post("/simulation/override")
+async def override_simulation_state(req: SimulationOverrideRequest):
+    global global_orchestrator
+    
+    if req.reset_overrides:
+        global_sim.solar_override_kw = None
+        global_sim.demand_override_kw = None
+        global_sim.transformer_capacity_override_kw = None
+    else:
+        if req.solar_kw is not None:
+            global_sim.solar_override_kw = max(0.0, req.solar_kw)
+        if req.battery_soc_pct is not None:
+            global_sim.battery.soc_pct = max(0.0, min(100.0, req.battery_soc_pct))
+        if req.demand_kw is not None:
+            global_sim.demand_override_kw = max(1.0, req.demand_kw)
+        if req.grid_capacity_kw is not None:
+            global_sim.transformer_capacity_override_kw = max(10.0, req.grid_capacity_kw)
+
+    # Re-evaluate current state through full multi-agent pipeline
+    state = global_sim.recalculate_current_state(global_orchestrator)
+    metrics = global_sim.get_metrics(mode="GRIDMIND")
+    await broadcast_state_update(state, metrics)
+    
+    bus = MessageBus.get_instance()
+    bus.publish(
+        step=state.step,
+        time_str=state.time_str,
+        sender="GridAgent",
+        receiver="ALL",
+        message_type="ENERGY_OVERRIDE_RECALCULATED",
+        priority="HIGH",
+        content=f"🎛️ Admin Energy Inputs Updated: Solar={state.solar_total_kw:.1f}kW, Battery SOC={state.battery.soc_pct:.0f}%, Demand={state.total_demand_kw:.1f}kW. Multi-agent dispatch recomputed.",
+        action_requested="SYNC_DISPATCH",
+        reasoning="Operator manual energy source manipulation triggered dynamic agent recalculation."
+    )
+    
+    recent_msgs = bus.get_recent_messages(12)
+    recent_decisions = global_orchestrator.memory.get_recent_decisions(8)
+    recent_trades = [t.model_dump() if hasattr(t, "model_dump") else t for t in global_sim.executed_trades[-30:]]
+    decision_summary = build_decision_summary(state, global_sim)
+    
+    return {
+        "status": "OVERRIDE_APPLIED",
+        "step": state.step,
+        "time": state.time_str,
+        "state": state,
+        "metrics": metrics,
+        "messages": recent_msgs,
+        "decisions": recent_decisions,
+        "trades": recent_trades,
+        "current_decision": decision_summary,
+        "why_points": decision_summary["why_points"]
+    }
+
+@router.get("/simulation/decision-summary")
+def get_decision_summary():
+    state = global_sim.history[-1] if global_sim.history else None
+    if not state:
+        state = global_orchestrator.step()
+    return build_decision_summary(state, global_sim)
 
 @router.post("/planning/what-if")
 def evaluate_what_if_plan(req: WhatIfRequest):

@@ -1,8 +1,23 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Sparkles, Sun, Zap, AlertTriangle, Bot } from "lucide-react";
-import { Header } from "../components/Header";
+import {
+  Sparkles,
+  Sun,
+  Zap,
+  Bot,
+  Sliders,
+  Cpu,
+  Activity,
+  ArrowRight,
+  BatteryCharging,
+  ShieldCheck,
+  CheckCircle2,
+  Layers,
+  BarChart2,
+  Compass,
+} from "lucide-react";
+import { Header, AdminTab } from "../components/Header";
 import { GridStatusBanner } from "../components/GridStatusBanner";
 import { MetricsCards } from "../components/MetricsCards";
 import { EnergyFlowDiagram } from "../components/EnergyFlowDiagram";
@@ -16,6 +31,10 @@ import { GridMindCopilot } from "../components/GridMindCopilot";
 import { AIConfigModal } from "../components/AIConfigModal";
 import { AgentDecisionsView } from "../components/AgentDecisionsView";
 import { UserTradingView } from "../components/UserTradingView";
+import { LoginPortal } from "../components/LoginPortal";
+import { EnergySourcesView } from "../components/EnergySourcesView";
+import { ScenariosView } from "../components/ScenariosView";
+import { AnalyticsView } from "../components/AnalyticsView";
 import {
   GridState,
   SimulationMetrics,
@@ -34,6 +53,10 @@ const WS_URL =
     : "ws://127.0.0.1:8000/ws");
 
 export default function DashboardPage() {
+  // User Session / Demo Role State
+  const [currentUser, setCurrentUser] = useState<{ name: string; role: "admin" | "user" } | null>(null);
+
+  // Simulation & Grid State
   const [gridState, setGridState] = useState<GridState | null>(null);
   const [metrics, setMetrics] = useState<SimulationMetrics | null>(null);
   const [messages, setMessages] = useState<AgentMessage[]>([]);
@@ -44,10 +67,12 @@ export default function DashboardPage() {
   const [isRunning, setIsRunning] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [crisisTriggered, setCrisisTriggered] = useState(false);
+
+  // Modals & Navigation
+  const [activeAdminTab, setActiveAdminTab] = useState<AdminTab>("dashboard");
+  const [bottomTab, setBottomTab] = useState<"p2p" | "audit">("p2p");
   const [isComparisonOpen, setIsComparisonOpen] = useState(false);
   const [isWhatIfOpen, setIsWhatIfOpen] = useState(false);
-  const [bottomTab, setBottomTab] = useState<"p2p" | "audit">("p2p");
-  const [activeTab, setActiveTab] = useState<"dashboard" | "decisions" | "trading">("dashboard");
 
   // AI Copilot & OpenAI Key States
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
@@ -56,6 +81,38 @@ export default function DashboardPage() {
   const [externalPrompt, setExternalPrompt] = useState<string>("");
 
   const wsRef = useRef<WebSocket | null>(null);
+
+  // Check sessionStorage for active session on load
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedUser = sessionStorage.getItem("gridmind_user");
+      if (savedUser) {
+        try {
+          const parsed = JSON.parse(savedUser);
+          if (parsed.name && parsed.role) {
+            setCurrentUser(parsed);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }, []);
+
+  const handleLogin = (name: string, role: "admin" | "user") => {
+    const user = { name, role };
+    setCurrentUser(user);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("gridmind_user", JSON.stringify(user));
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("gridmind_user");
+    }
+  };
 
   // 1. Fetch initial state, scenarios & AI status
   useEffect(() => {
@@ -305,7 +362,11 @@ export default function DashboardPage() {
     if (data.trades && data.trades.length > 0) setTrades(data.trades);
   };
 
-  // Explain with AI Handlers
+  const handleStateUpdated = (newState: GridState, newMetrics?: SimulationMetrics) => {
+    setGridState(newState);
+    if (newMetrics) setMetrics(newMetrics);
+  };
+
   const handleExplainDecision = (decision: AgentDecisionLog) => {
     setExternalPrompt(
       `Please explain the rationale behind this decision by ${decision.agent} at ${decision.time_str}:\nDecision: "${decision.decision}"\nReason: "${decision.reason}"\nObservation: "${decision.observation}"\nWhy was this chosen over other alternatives?`
@@ -320,11 +381,93 @@ export default function DashboardPage() {
     setIsCopilotOpen(true);
   };
 
+  // IF NO USER IS LOGGED IN: Render Login / Entry Portal
+  if (!currentUser) {
+    return <LoginPortal onLogin={handleLogin} />;
+  }
+
+  // IF NORMAL USER IS LOGGED IN: Render Only User P2P Trading View
+  if (currentUser.role === "user") {
+    return (
+      <div className="min-h-screen bg-[#050811] text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30">
+        <header className="w-full glass-panel border-b border-slate-800/80 px-4 lg:px-6 py-3 sticky top-0 z-40 bg-[#050811]/90 backdrop-blur-md">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-600 flex items-center justify-center shadow-md">
+                <Zap className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h1 className="text-base font-bold tracking-wider text-white">GRIDMIND P2P</h1>
+                <p className="text-[10px] text-slate-400">Decentralized Energy Marketplace</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <span className="text-xs text-slate-400">
+                Welcome, <strong className="text-cyan-300">{currentUser.name}</strong>
+              </span>
+              <button
+                onClick={handleLogout}
+                className="px-3 py-1 text-xs font-semibold rounded-lg bg-slate-900 border border-slate-800 hover:border-rose-500/30 hover:text-rose-300 transition-colors"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </header>
+        <main className="flex-1 max-w-[1600px] w-full mx-auto p-4 md:p-6">
+          <UserTradingView
+            gridState={gridState}
+            metrics={metrics}
+            trades={trades}
+            initialUserName={currentUser.name}
+            onLogout={handleLogout}
+            onTradeExecuted={handleStep}
+          />
+        </main>
+      </div>
+    );
+  }
+
+  // ADMIN MODE: Full GridMind Control Center
   const activeScenarioObj = scenarios.find((s) => s.id === currentScenario);
+
+  // Current Decision fallback if not provided by backend
+  const decisionSummary = gridState?.current_decision || {
+    battery_action:
+      (gridState?.battery_discharge_kw || 0) > 0.1
+        ? `Discharge ${gridState?.battery_discharge_kw.toFixed(1)} kW`
+        : (gridState?.battery_charge_kw || 0) > 0.1
+        ? `Charge ${gridState?.battery_charge_kw.toFixed(1)} kW`
+        : "Idle / Standby",
+    battery_kw: (gridState?.battery_discharge_kw || 0) > 0.1 ? gridState?.battery_discharge_kw || 0 : -(gridState?.battery_charge_kw || 0),
+    grid_action:
+      (gridState?.grid_import_kw || 0) > 0.1
+        ? `Import ${gridState?.grid_import_kw.toFixed(1)} kW`
+        : (gridState?.grid_export_kw || 0) > 0.1
+        ? `Export ${gridState?.grid_export_kw.toFixed(1)} kW`
+        : "Balanced",
+    grid_kw: gridState?.grid_import_kw || 0,
+    p2p_action:
+      (gridState?.p2p_volume_kwh || 0) > 0
+        ? `Active Peer Trade (${gridState?.p2p_volume_kwh.toFixed(1)} kWh cleared)`
+        : "Zero P2P Trade Required",
+    p2p_kwh: gridState?.p2p_volume_kwh || 0,
+    flexible_action:
+      (gridState?.household_flexible_total_kw || 0) > 0
+        ? `Deferred ${gridState?.household_flexible_total_kw.toFixed(1)} kW to off-peak`
+        : "Zero load shedding",
+    ev_action: "Coordinated smart charging",
+    why_points: [
+      `Solar generation at ${gridState?.solar_total_kw.toFixed(1)} kW against total demand of ${gridState?.total_demand_kw.toFixed(1)} kW.`,
+      `Battery SOC is ${gridState?.battery?.soc_pct.toFixed(1)}%, ${(gridState?.battery_discharge_kw || 0) > 0 ? "discharging to protect grid and avoid peak tariffs" : "preserving reserves"}.`,
+      `Substation transformer is loading at ${gridState?.transformer_load_pct.toFixed(1)}% (limit: 95%).`,
+      `P2P market clearing price is ₹${(gridState?.p2p_clearing_price_kwh || 8.5).toFixed(2)}/kWh vs retail ₹${(gridState?.grid_buy_price_kwh || 13.5).toFixed(2)}/kWh.`,
+    ],
+  };
 
   return (
     <div className="min-h-screen bg-[#050811] text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30">
-      {/* Top Controls Header */}
+      {/* Top Admin Controls Header */}
       <Header
         timeStr={gridState?.time_str || "00:00"}
         step={gridState?.step || 0}
@@ -333,8 +476,8 @@ export default function DashboardPage() {
         currentScenario={currentScenario}
         scenarios={scenarios}
         crisisTriggered={crisisTriggered}
-        activeTab={activeTab}
-        onTabChange={(tab) => setActiveTab(tab)}
+        activeTab={activeAdminTab}
+        onTabChange={(tab) => setActiveAdminTab(tab)}
         isAIOpen={isCopilotOpen}
         onToggleAI={() => setIsCopilotOpen(!isCopilotOpen)}
         onOpenAIConfig={() => setIsAIConfigOpen(true)}
@@ -347,45 +490,25 @@ export default function DashboardPage() {
         onTriggerCrisis={handleTriggerCrisis}
         onOpenComparison={() => setIsComparisonOpen(true)}
         onOpenWhatIf={() => setIsWhatIfOpen(true)}
+        userName={currentUser.name}
+        onLogout={handleLogout}
       />
 
-      {/* Main App Body */}
+      {/* Main Admin Content Body */}
       <main className="flex-1 max-w-[1600px] w-full mx-auto p-3.5 md:p-6 space-y-4">
-        {activeTab === "decisions" ? (
-          /* TAB 2: AGENT DECISIONS VIEW */
-          <AgentDecisionsView
-            currentScenario={currentScenario}
-            scenarios={scenarios}
-            currentStep={gridState?.step || 0}
-            timeStr={gridState?.time_str || "00:00"}
-            isRunning={isRunning}
-            onScenarioChange={handleScenarioChange}
-            onJumpToStep={handleJumpTo}
-          />
-        ) : activeTab === "trading" ? (
-          /* TAB 3: USER P2P TRADING VIEW */
-          <UserTradingView
-            gridState={gridState}
-            metrics={metrics}
-            trades={trades}
-            onTradeExecuted={() => {
-              // Quick refresh
-              handleStep();
-            }}
-          />
-        ) : (
-          /* TAB 1: DEFAULT DASHBOARD */
-          <>
-            {/* Scenario Story Explainer Banner */}
-            <div className="glass-panel p-4 rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-slate-900/90 via-cyan-950/25 to-slate-900/90 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+        {/* TAB 1: DASHBOARD (High-Level Overview) */}
+        {activeAdminTab === "dashboard" && (
+          <div className="space-y-4">
+            {/* Quick Scenario & Story Banner */}
+            <div className="glass-panel p-3.5 md:p-4 rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-slate-900/90 via-cyan-950/25 to-slate-900/90 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
               <div className="flex items-start space-x-3">
-                <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 mt-0.5 shrink-0">
-                  <Sparkles className="w-5 h-5 animate-pulse text-cyan-300" />
+                <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 mt-0.5 shrink-0">
+                  <Sparkles className="w-4 h-4 animate-pulse text-cyan-300" />
                 </div>
                 <div>
                   <div className="flex items-center space-x-2 flex-wrap gap-y-1">
                     <span className="text-[11px] uppercase font-extrabold tracking-wider text-cyan-400">
-                      Active Simulation Scenario:
+                      Active Operating Scenario:
                     </span>
                     <span className="text-xs font-bold text-white px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700">
                       {activeScenarioObj?.title || currentScenario}
@@ -396,32 +519,13 @@ export default function DashboardPage() {
                   </div>
                   <p className="text-xs text-slate-300 mt-1 leading-relaxed max-w-4xl">
                     {activeScenarioObj?.description ||
-                      "Sudden cloud cover strikes at 18:30 (step 74), plunging solar by 85% exactly as EVs plug in and dinner demand peaks."}
+                      "Autonomous multi-agent microgrid coordinating distributed solar, battery storage, and peer-to-peer trading in real-time."}
                   </p>
                 </div>
               </div>
 
-              {/* Quick Actions, AI Copilot & What-If Planner */}
+              {/* Jump & What-If shortcuts */}
               <div className="flex items-center space-x-2 shrink-0 bg-slate-950/70 p-1.5 rounded-xl border border-slate-800 flex-wrap gap-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
-                  Actions:
-                </span>
-                <button
-                  onClick={() => setIsCopilotOpen(true)}
-                  className="px-3 py-1 text-xs font-black rounded-lg bg-gradient-to-r from-cyan-500/30 to-indigo-500/30 hover:from-cyan-500/45 hover:to-indigo-500/45 text-cyan-200 border border-cyan-400/50 shadow-md ring-1 ring-cyan-400/30 transition-all flex items-center space-x-1.5"
-                  title="Open Autonomous AI Microgrid Copilot"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
-                  <span>✨ AI Copilot</span>
-                </button>
-                <button
-                  onClick={() => setIsWhatIfOpen(true)}
-                  className="px-3 py-1 text-xs font-black rounded-lg bg-gradient-to-r from-cyan-500/25 via-indigo-500/25 to-purple-500/25 hover:from-cyan-500/40 hover:to-purple-500/40 text-cyan-200 border border-cyan-400/50 shadow-md ring-1 ring-cyan-400/30 transition-all flex items-center space-x-1.5"
-                  title="Autonomous What-If Scenario Planning Agent"
-                >
-                  <Bot className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
-                  <span>🧠 Plan 30m What-If</span>
-                </button>
                 <button
                   onClick={() => handleJumpTo(48)}
                   className="px-2.5 py-1 text-xs font-bold rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 transition-all flex items-center space-x-1"
@@ -441,7 +545,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* 1. Grid Status Banner */}
+            {/* Grid Status Banner */}
             {gridState && (
               <GridStatusBanner
                 status={gridState.status}
@@ -453,66 +557,291 @@ export default function DashboardPage() {
               />
             )}
 
-            {/* 2. Key Telemetry KPI Cards */}
+            {/* Top Key Telemetry KPI Cards */}
             {gridState && metrics && <MetricsCards state={gridState} metrics={metrics} />}
 
-            {/* 3. Operational Grid Workspace: 2-Column Split */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-              {/* Left Column (7 cols): Topological Power Flow + Tabbed Market/Audit Table */}
-              <div className="lg:col-span-7 space-y-4">
-                {gridState && <EnergyFlowDiagram state={gridState} />}
-
-                {/* Bottom Tab Switcher: P2P Ledger vs Decision Audit Trail */}
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2 border-b border-slate-800 pb-1">
-                    <button
-                      onClick={() => setBottomTab("p2p")}
-                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors ${
-                        bottomTab === "p2p"
-                          ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
-                          : "text-slate-400 hover:text-slate-200"
-                      }`}
-                    >
-                      P2P Energy Trading Ledger
-                    </button>
-                    <button
-                      onClick={() => setBottomTab("audit")}
-                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors ${
-                        bottomTab === "audit"
-                          ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
-                          : "text-slate-400 hover:text-slate-200"
-                      }`}
-                    >
-                      Explainable Agent Decision Logs ({decisions.length})
-                    </button>
+            {/* SECTION: Current GridMind Decision Hero Card + Live Explainer */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+              {/* Left 7 Cols: Current Decision Hero */}
+              <div className="lg:col-span-7 glass-panel p-5 rounded-2xl border border-cyan-500/40 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 shadow-2xl flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                    <div className="flex items-center space-x-2.5">
+                      <div className="w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
+                      <h3 className="text-sm font-extrabold uppercase tracking-wider text-cyan-300">
+                        Current GridMind Decision
+                      </h3>
+                    </div>
+                    <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+                      Step {gridState?.step || 0} • {gridState?.time_str || "00:00"}
+                    </span>
                   </div>
 
-                  {bottomTab === "p2p" ? (
-                    <P2PTradingLedger
-                      trades={trades}
-                      totalVolumeKwh={metrics?.p2p_energy_traded_kwh || 0}
-                      clearingPrice={gridState?.p2p_clearing_price_kwh || 8.5}
-                      gridRetailTariff={gridState?.grid_buy_price_kwh || 13.5}
-                    />
-                  ) : (
-                    <AgentDecisionAudit
-                      decisions={decisions}
-                      onExplainDecision={handleExplainDecision}
-                    />
-                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                    {/* Battery Action */}
+                    <div className="p-3.5 rounded-xl bg-slate-950/80 border border-emerald-500/20">
+                      <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+                        <span className="font-semibold flex items-center gap-1.5">
+                          <BatteryCharging className="w-4 h-4 text-emerald-400" />
+                          <span>Battery Storage</span>
+                        </span>
+                        <span className="text-[10px] font-mono text-emerald-400 font-bold">
+                          SOC {gridState?.battery?.soc_pct.toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="text-base font-extrabold text-emerald-300 font-mono">
+                        {decisionSummary.battery_action}
+                      </div>
+                    </div>
+
+                    {/* Grid Import/Export */}
+                    <div className="p-3.5 rounded-xl bg-slate-950/80 border border-amber-500/20">
+                      <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+                        <span className="font-semibold flex items-center gap-1.5">
+                          <Zap className="w-4 h-4 text-amber-400" />
+                          <span>Main Grid</span>
+                        </span>
+                        <span className="text-[10px] font-mono text-amber-400 font-bold">
+                          ₹{gridState?.grid_buy_price_kwh}/kWh
+                        </span>
+                      </div>
+                      <div className="text-base font-extrabold text-amber-300 font-mono">
+                        {decisionSummary.grid_action}
+                      </div>
+                    </div>
+
+                    {/* P2P Trading */}
+                    <div className="p-3.5 rounded-xl bg-slate-950/80 border border-purple-500/20">
+                      <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+                        <span className="font-semibold flex items-center gap-1.5">
+                          <Activity className="w-4 h-4 text-purple-400" />
+                          <span>P2P Market</span>
+                        </span>
+                        <span className="text-[10px] font-mono text-purple-400 font-bold">
+                          Clear ₹{(gridState?.p2p_clearing_price_kwh || 8.5).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="text-base font-extrabold text-purple-300 font-mono">
+                        {decisionSummary.p2p_action}
+                      </div>
+                    </div>
+
+                    {/* Flexible Loads & EV */}
+                    <div className="p-3.5 rounded-xl bg-slate-950/80 border border-cyan-500/20">
+                      <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+                        <span className="font-semibold flex items-center gap-1.5">
+                          <ShieldCheck className="w-4 h-4 text-cyan-400" />
+                          <span>Demand Response</span>
+                        </span>
+                        <span className="text-[10px] font-mono text-cyan-400 font-bold">
+                          Load Shifting
+                        </span>
+                      </div>
+                      <div className="text-base font-extrabold text-cyan-300 font-mono">
+                        {decisionSummary.flexible_action}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Drill-down links */}
+                <div className="mt-4 pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs text-slate-400">Deep-dive into system internals:</span>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setActiveAdminTab("agents")}
+                      className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-bold transition-all"
+                    >
+                      <Cpu className="w-3.5 h-3.5" />
+                      <span>Inspect 7 Agents</span>
+                      <ArrowRight className="w-3 h-3 ml-0.5" />
+                    </button>
+                    <button
+                      onClick={() => setActiveAdminTab("energy_sources")}
+                      className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-bold transition-all"
+                    >
+                      <Sliders className="w-3.5 h-3.5" />
+                      <span>Tune Energy Sources</span>
+                      <ArrowRight className="w-3 h-3 ml-0.5" />
+                    </button>
+                    <button
+                      onClick={() => setActiveAdminTab("simulation")}
+                      className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-xs font-bold transition-all"
+                    >
+                      <Activity className="w-3.5 h-3.5" />
+                      <span>Live Power Flow</span>
+                      <ArrowRight className="w-3 h-3 ml-0.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Right Column (5 cols): Live Agent Negotiation Feed + Event Timeline */}
-              <div className="lg:col-span-5 space-y-4">
+              {/* Right 5 Cols: Live "Why Did GridMind Decide This?" */}
+              <div className="lg:col-span-5 glass-panel p-5 rounded-2xl border border-slate-800 bg-slate-900/60 shadow-xl flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+                    <h3 className="text-sm font-bold text-white flex items-center space-x-2">
+                      <Sparkles className="w-4 h-4 text-cyan-400" />
+                      <span>Why Did GridMind Decide This?</span>
+                    </h3>
+                    <span className="text-[10px] uppercase font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                      Autonomous Rationale
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-400 mb-3 leading-relaxed">
+                    Live multi-agent consensus and LP optimizer justification for the current dispatch vector:
+                  </p>
+
+                  <ul className="space-y-2 text-xs">
+                    {decisionSummary.why_points.map((pt, idx) => (
+                      <li key={idx} className="flex items-start space-x-2.5 p-2 rounded-xl bg-slate-950/60 border border-slate-800/80">
+                        <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+                        <span className="text-slate-200 leading-snug">{pt}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+                  <span>Verified by LP Optimizer & Safety Layer</span>
+                  <button
+                    onClick={() => setActiveAdminTab("agents")}
+                    className="text-cyan-400 hover:text-cyan-300 font-semibold underline"
+                  >
+                    View Agent Decision Logs →
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Activity Split: P2P Trades Ledger vs Decision Audit Trail */}
+            <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-slate-900/40 space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setBottomTab("p2p")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-colors ${
+                      bottomTab === "p2p"
+                        ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                        : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    Recent P2P Trades
+                  </button>
+                  <button
+                    onClick={() => setBottomTab("audit")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-colors ${
+                      bottomTab === "audit"
+                        ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                        : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    Agent Audit Log ({decisions.length})
+                  </button>
+                </div>
+                <span className="text-xs text-slate-500 font-mono">Live Sync</span>
+              </div>
+
+              {bottomTab === "p2p" ? (
+                <P2PTradingLedger
+                  trades={trades}
+                  totalVolumeKwh={metrics?.p2p_energy_traded_kwh || 0}
+                  clearingPrice={gridState?.p2p_clearing_price_kwh || 8.5}
+                  gridRetailTariff={gridState?.grid_buy_price_kwh || 13.5}
+                />
+              ) : (
+                <AgentDecisionAudit
+                  decisions={decisions}
+                  onExplainDecision={handleExplainDecision}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 2: LIVE SIMULATION (Power Flow & Live Operations) */}
+        {activeAdminTab === "simulation" && (
+          <div className="space-y-4">
+            <div className="glass-panel p-4 rounded-2xl border border-cyan-500/30 bg-slate-900/60 shadow-xl flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-bold text-white flex items-center space-x-2">
+                  <Activity className="w-5 h-5 text-cyan-400" />
+                  <span>Real-Time Topological Power Flow</span>
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Visualizing power exchange across Solar PV, Battery Energy Storage, Main Substation Grid, Households, and EV Fleet.
+                </p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-mono text-cyan-300 bg-cyan-950/80 px-3 py-1 rounded-xl border border-cyan-500/30">
+                  {gridState?.time_str || "00:00"} (Step {gridState?.step || 0}/96)
+                </span>
+              </div>
+            </div>
+
+            {/* Topological Flow Diagram */}
+            {gridState && <EnergyFlowDiagram state={gridState} />}
+
+            {/* Agent Live Communication Feed & Event Timeline */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+              <div className="lg:col-span-7">
                 <AgentActivityFeed
                   messages={messages}
                   onExplainMessage={handleExplainMessage}
                 />
+              </div>
+              <div className="lg:col-span-5">
                 <EventTimeline messages={messages} currentStep={gridState?.step || 0} />
               </div>
             </div>
-          </>
+          </div>
+        )}
+
+        {/* TAB 3: AGENT DECISIONS (Multi-Agent Inspection) */}
+        {activeAdminTab === "agents" && (
+          <AgentDecisionsView
+            currentScenario={currentScenario}
+            scenarios={scenarios}
+            currentStep={gridState?.step || 0}
+            timeStr={gridState?.time_str || "00:00"}
+            isRunning={isRunning}
+            onScenarioChange={handleScenarioChange}
+            onJumpToStep={handleJumpTo}
+          />
+        )}
+
+        {/* TAB 4: ENERGY SOURCES (Admin Microgrid Controls & Real-Time Recalculation) */}
+        {activeAdminTab === "energy_sources" && (
+          <EnergySourcesView
+            gridState={gridState}
+            metrics={metrics}
+            onStateUpdated={handleStateUpdated}
+            onNavigateToDecisions={() => setActiveAdminTab("agents")}
+            onNavigateToSimulation={() => setActiveAdminTab("simulation")}
+          />
+        )}
+
+        {/* TAB 5: SCENARIOS (Stress Testing & Scenario Engine) */}
+        {activeAdminTab === "scenarios" && (
+          <ScenariosView
+            scenarios={scenarios}
+            currentScenario={currentScenario}
+            gridState={gridState}
+            onScenarioChange={handleScenarioChange}
+            onOpenComparison={() => setIsComparisonOpen(true)}
+            onNavigateToSimulation={() => setActiveAdminTab("simulation")}
+          />
+        )}
+
+        {/* TAB 6: ANALYTICS (Deep-Dive Performance & Baseline Comparison) */}
+        {activeAdminTab === "analytics" && (
+          <AnalyticsView
+            gridState={gridState}
+            metrics={metrics}
+            trades={trades}
+            onOpenComparison={() => setIsComparisonOpen(true)}
+          />
         )}
       </main>
 

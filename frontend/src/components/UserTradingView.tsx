@@ -19,6 +19,7 @@ import {
   Activity,
   PlusCircle,
   RefreshCw,
+  LogOut,
 } from "lucide-react";
 import { GridState, SimulationMetrics, P2PTrade, MarketOrder } from "../types";
 
@@ -27,6 +28,8 @@ interface UserTradingViewProps {
   metrics: SimulationMetrics | null;
   trades: P2PTrade[];
   onTradeExecuted?: () => void;
+  initialUserName?: string;
+  onLogout?: () => void;
 }
 
 export const UserTradingView: React.FC<UserTradingViewProps> = ({
@@ -34,13 +37,15 @@ export const UserTradingView: React.FC<UserTradingViewProps> = ({
   metrics,
   trades,
   onTradeExecuted,
+  initialUserName = "Rahul",
+  onLogout,
 }) => {
   const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "";
 
   // User Identity State (User can simply enter or change their name)
-  const [userName, setUserName] = useState<string>("Akash Sharma");
+  const [userName, setUserName] = useState<string>(initialUserName);
   const [isEditingName, setIsEditingName] = useState<boolean>(false);
-  const [tempName, setTempName] = useState<string>("Akash Sharma");
+  const [tempName, setTempName] = useState<string>(initialUserName);
 
   // Buy Order Form
   const [buyEnergy, setBuyEnergy] = useState<number>(5.0);
@@ -286,6 +291,16 @@ export const UserTradingView: React.FC<UserTradingViewProps> = ({
                   Change
                 </button>
               </div>
+            )}
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-slate-900/90 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-slate-800 hover:border-rose-500/30 text-xs font-semibold transition-all ml-1.5"
+                title="Return to Login / Switch User"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
             )}
           </div>
         </div>
