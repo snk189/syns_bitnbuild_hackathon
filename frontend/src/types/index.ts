@@ -225,3 +225,41 @@ export interface WhatIfEvaluationResult {
     projected_cost_savings: number;
   };
 }
+
+export interface LLMStatus {
+  configured: boolean;
+  has_client: boolean;
+  model: string;
+  provider: string;
+  openai_sdk_installed: boolean;
+  masked_key: string | null;
+  last_test?: {
+    success: boolean;
+    message: string;
+    model?: string;
+  } | null;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: string;
+  isLiveLLM?: boolean;
+  model?: string;
+  suggestions?: string[];
+  notice?: string;
+  contextSummary?: {
+    clock?: string;
+    transformer_load_pct?: number;
+    scenario?: string;
+  };
+}
+
+export interface ExecutiveReportData {
+  scenario: string;
+  executive_report: string;
+  is_live_llm: boolean;
+  model: string;
+  comparison: SimulationComparison;
+}

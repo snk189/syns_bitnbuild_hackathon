@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Sparkles, Sun, Zap, AlertTriangle } from "lucide-react";
+import { Sparkles, Sun, Zap, AlertTriangle, Bot } from "lucide-react";
 import { Header } from "../components/Header";
 import { GridStatusBanner } from "../components/GridStatusBanner";
 import { MetricsCards } from "../components/MetricsCards";
@@ -12,10 +12,24 @@ import { AgentDecisionAudit } from "../components/AgentDecisionAudit";
 import { ComparisonModal } from "../components/ComparisonModal";
 import { WhatIfPlannerModal } from "../components/WhatIfPlannerModal";
 import { EventTimeline } from "../components/EventTimeline";
-import { GridState, SimulationMetrics, ScenarioInfo, AgentMessage, AgentDecisionLog, P2PTrade } from "../types";
+import { GridMindCopilot } from "../components/GridMindCopilot";
+import { AIConfigModal } from "../components/AIConfigModal";
+import {
+  GridState,
+  SimulationMetrics,
+  ScenarioInfo,
+  AgentMessage,
+  AgentDecisionLog,
+  P2PTrade,
+  LLMStatus,
+} from "../types";
 
-const BACKEND_URL = "";
-const WS_URL = typeof window !== "undefined" ? `ws://${window.location.hostname}:8000/ws` : "ws://127.0.0.1:8000/ws";
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "";
+const WS_URL =
+  process.env.NEXT_PUBLIC_WS_URL ||
+  (typeof window !== "undefined"
+    ? `ws://${window.location.hostname}:8000/ws`
+    : "ws://127.0.0.1:8000/ws");
 
 export default function DashboardPage() {
   const [gridState, setGridState] = useState<GridState | null>(null);
@@ -32,18 +46,25 @@ export default function DashboardPage() {
   const [isWhatIfOpen, setIsWhatIfOpen] = useState(false);
   const [bottomTab, setBottomTab] = useState<"p2p" | "audit">("p2p");
 
+  // AI Copilot & OpenAI Key States
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
+  const [isAIConfigOpen, setIsAIConfigOpen] = useState(false);
+  const [aiStatus, setAiStatus] = useState<LLMStatus | null>(null);
+  const [externalPrompt, setExternalPrompt] = useState<string>("");
+
   const wsRef = useRef<WebSocket | null>(null);
 
-  // 1. Fetch initial state & scenarios
+  // 1. Fetch initial state, scenarios & AI status
   useEffect(() => {
     const fetchInit = async () => {
       try {
-        const [stateRes, scRes, tradesRes, msgsRes, logsRes] = await Promise.all([
+        const [stateRes, scRes, tradesRes, msgsRes, logsRes, aiRes] = await Promise.all([
           fetch(`${BACKEND_URL}/api/state`),
           fetch(`${BACKEND_URL}/api/simulation/scenarios`),
           fetch(`${BACKEND_URL}/api/market/trades`),
           fetch(`${BACKEND_URL}/api/agents/messages`),
           fetch(`${BACKEND_URL}/api/agents/logs`),
+          fetch(`${BACKEND_URL}/api/llm/status`).catch(() => null),
         ]);
 
         if (stateRes.ok) {
@@ -69,6 +90,10 @@ export default function DashboardPage() {
         if (logsRes.ok) {
           const lJson = await logsRes.json();
           setDecisions(lJson);
+        }
+        if (aiRes && aiRes.ok) {
+          const aiJson = await aiRes.json();
+          setAiStatus(aiJson);
         }
       } catch (err) {
         console.error("Failed to connect to backend", err);
@@ -269,6 +294,21 @@ export default function DashboardPage() {
     if (data.trades && data.trades.length > 0) setTrades(data.trades);
   };
 
+  // Explain with AI Handlers
+  const handleExplainDecision = (decision: AgentDecisionLog) => {
+    setExternalPrompt(
+      `Please explain the rationale behind this decision by ${decision.agent} at ${decision.time_str}:\nDecision: "${decision.decision}"\nReason: "${decision.reason}"\nObservation: "${decision.observation}"\nWhy was this chosen over other alternatives?`
+    );
+    setIsCopilotOpen(true);
+  };
+
+  const handleExplainMessage = (msg: AgentMessage) => {
+    setExternalPrompt(
+      `Analyze this agent communication sent by ${msg.sender} to ${msg.receiver} at ${msg.time_str} (${msg.message_type}, priority: ${msg.priority}):\nContent: "${msg.content}"\nReasoning: "${msg.reasoning || 'N/A'}"\nWhat are the grid implications?`
+    );
+    setIsCopilotOpen(true);
+  };
+
   const activeScenarioObj = scenarios.find((s) => s.id === currentScenario);
 
   return (
@@ -282,6 +322,10 @@ export default function DashboardPage() {
         currentScenario={currentScenario}
         scenarios={scenarios}
         crisisTriggered={crisisTriggered}
+        isAIOpen={isCopilotOpen}
+        onToggleAI={() => setIsCopilotOpen(!isCopilotOpen)}
+        onOpenAIConfig={() => setIsAIConfigOpen(true)}
+        isAIConfigured={aiStatus?.configured ?? false}
         onPlayPause={handlePlayPause}
         onStep={handleStep}
         onReset={handleReset}
@@ -319,17 +363,25 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Quick Actions & What-If Planner */}
+          {/* Quick Actions, AI Copilot & What-If Planner */}
           <div className="flex items-center space-x-2 shrink-0 bg-slate-950/70 p-1.5 rounded-xl border border-slate-800 flex-wrap gap-y-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
               Actions:
             </span>
             <button
+              onClick={() => setIsCopilotOpen(true)}
+              className="px-3 py-1 text-xs font-black rounded-lg bg-gradient-to-r from-cyan-500/30 to-indigo-500/30 hover:from-cyan-500/45 hover:to-indigo-500/45 text-cyan-200 border border-cyan-400/50 shadow-md ring-1 ring-cyan-400/30 transition-all flex items-center space-x-1.5"
+              title="Open Autonomous AI Microgrid Copilot"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
+              <span>✨ AI Copilot</span>
+            </button>
+            <button
               onClick={() => setIsWhatIfOpen(true)}
               className="px-3 py-1 text-xs font-black rounded-lg bg-gradient-to-r from-cyan-500/25 via-indigo-500/25 to-purple-500/25 hover:from-cyan-500/40 hover:to-purple-500/40 text-cyan-200 border border-cyan-400/50 shadow-md ring-1 ring-cyan-400/30 transition-all flex items-center space-x-1.5"
               title="Autonomous What-If Scenario Planning Agent"
             >
-              <Sparkles className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
+              <Bot className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
               <span>🧠 Plan 30m What-If</span>
             </button>
             <button
@@ -405,14 +457,20 @@ export default function DashboardPage() {
                   gridRetailTariff={gridState?.grid_buy_price_kwh || 13.5}
                 />
               ) : (
-                <AgentDecisionAudit decisions={decisions} />
+                <AgentDecisionAudit
+                  decisions={decisions}
+                  onExplainDecision={handleExplainDecision}
+                />
               )}
             </div>
           </div>
 
           {/* Right Column (5 cols): Live Agent Negotiation Feed + Event Timeline */}
           <div className="lg:col-span-5 space-y-4">
-            <AgentActivityFeed messages={messages} />
+            <AgentActivityFeed
+              messages={messages}
+              onExplainMessage={handleExplainMessage}
+            />
             <EventTimeline messages={messages} currentStep={gridState?.step || 0} />
           </div>
         </div>
@@ -431,6 +489,38 @@ export default function DashboardPage() {
         onClose={() => setIsWhatIfOpen(false)}
         onPlanExecuted={handlePlanExecuted}
         backendUrl={BACKEND_URL}
+      />
+
+      {/* Floating AI Copilot Trigger Button */}
+      {!isCopilotOpen && (
+        <button
+          onClick={() => setIsCopilotOpen(true)}
+          className="fixed bottom-6 right-6 z-40 p-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 text-white shadow-2xl shadow-cyan-500/30 hover:scale-105 transition-all flex items-center space-x-2 border border-cyan-300/30 glow-cyan"
+        >
+          <Sparkles className="w-5 h-5 animate-spin" />
+          <span className="text-xs font-bold hidden sm:inline">Ask GridMind AI</span>
+        </button>
+      )}
+
+      {/* GridMind AI Copilot Drawer */}
+      <GridMindCopilot
+        isOpen={isCopilotOpen}
+        onClose={() => {
+          setIsCopilotOpen(false);
+          setExternalPrompt("");
+        }}
+        gridState={gridState}
+        currentScenario={currentScenario}
+        externalPrompt={externalPrompt}
+        onClearExternalPrompt={() => setExternalPrompt("")}
+        onOpenConfig={() => setIsAIConfigOpen(true)}
+      />
+
+      {/* OpenAI API Configuration Modal */}
+      <AIConfigModal
+        isOpen={isAIConfigOpen}
+        onClose={() => setIsAIConfigOpen(false)}
+        onStatusChange={(st) => setAiStatus(st)}
       />
     </div>
   );

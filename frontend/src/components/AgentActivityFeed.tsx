@@ -1,14 +1,15 @@
 "use client";
 
 import React from "react";
-import { MessageSquare, Bot, AlertCircle, CheckCircle2, Shield, ArrowRight } from "lucide-react";
+import { MessageSquare, Bot, AlertCircle, CheckCircle2, Shield, ArrowRight, Sparkles } from "lucide-react";
 import { AgentMessage } from "../types";
 
 interface AgentActivityFeedProps {
   messages: AgentMessage[];
+  onExplainMessage?: (msg: AgentMessage) => void;
 }
 
-export const AgentActivityFeed: React.FC<AgentActivityFeedProps> = ({ messages }) => {
+export const AgentActivityFeed: React.FC<AgentActivityFeedProps> = ({ messages, onExplainMessage }) => {
   const getAgentMeta = (sender: string) => {
     switch (sender) {
       case "ForecastAgent":
@@ -73,7 +74,7 @@ export const AgentActivityFeed: React.FC<AgentActivityFeedProps> = ({ messages }
             return (
               <div
                 key={msg.id}
-                className="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800/70 hover:border-slate-700 transition-colors"
+                className="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800/70 hover:border-slate-700 transition-colors group relative"
               >
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <div className="flex items-center space-x-1.5 flex-wrap">
@@ -89,6 +90,16 @@ export const AgentActivityFeed: React.FC<AgentActivityFeedProps> = ({ messages }
                     </span>
                   </div>
                   <div className="flex items-center space-x-1.5 text-[10px]">
+                    {onExplainMessage && (
+                      <button
+                        onClick={() => onExplainMessage(msg)}
+                        title="Analyze this agent message with AI Copilot"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center space-x-0.5 px-1.5 py-0.2 rounded bg-cyan-950/50 border border-cyan-800/40"
+                      >
+                        <Sparkles className="w-2.5 h-2.5" />
+                        <span>Ask AI</span>
+                      </button>
+                    )}
                     <span className={`px-1.5 py-0.2 rounded text-[9px] uppercase ${getPriorityBadge(msg.priority)}`}>
                       {msg.priority}
                     </span>

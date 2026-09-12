@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Play, Pause, SkipForward, RotateCcw, AlertOctagon, BarChart2, Zap, Clock, Bot } from "lucide-react";
+import { Play, Pause, SkipForward, RotateCcw, AlertOctagon, BarChart2, Zap, Clock, Bot, Sparkles, Key } from "lucide-react";
 import { ScenarioInfo } from "../types";
 
 interface HeaderProps {
@@ -12,6 +12,10 @@ interface HeaderProps {
   currentScenario: string;
   scenarios: ScenarioInfo[];
   crisisTriggered: boolean;
+  isAIOpen?: boolean;
+  onToggleAI?: () => void;
+  onOpenAIConfig?: () => void;
+  isAIConfigured?: boolean;
   onPlayPause: () => void;
   onStep: () => void;
   onReset: () => void;
@@ -30,6 +34,10 @@ export const Header: React.FC<HeaderProps> = ({
   currentScenario,
   scenarios,
   crisisTriggered,
+  isAIOpen = false,
+  onToggleAI,
+  onOpenAIConfig,
+  isAIConfigured = false,
   onPlayPause,
   onStep,
   onReset,
@@ -133,11 +141,42 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Action Buttons: What-If, Trigger Crisis & Comparison */}
-        <div className="flex items-center space-x-2.5">
+        {/* Action Buttons: What-If, AI Copilot, Trigger Crisis & Comparison */}
+        <div className="flex items-center space-x-2">
+          {/* AI Key Status Button */}
+          {onOpenAIConfig && (
+            <button
+              onClick={onOpenAIConfig}
+              title={isAIConfigured ? "OpenAI API Configured (Click to change)" : "Configure OpenAI API Key"}
+              className={`flex items-center space-x-1 px-2.5 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                isAIConfigured
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+                  : "bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20"
+              }`}
+            >
+              <Key className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{isAIConfigured ? "AI Ready" : "Set Key"}</span>
+            </button>
+          )}
+
+          {/* AI Copilot Toggle */}
+          {onToggleAI && (
+            <button
+              onClick={onToggleAI}
+              className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-md ${
+                isAIOpen
+                  ? "bg-gradient-to-r from-cyan-500 to-indigo-600 text-white shadow-cyan-500/25 ring-2 ring-cyan-400"
+                  : "bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 glow-cyan"
+              }`}
+            >
+              <Sparkles className={`w-4 h-4 ${isAIOpen ? "animate-spin" : "animate-pulse"}`} />
+              <span>AI Copilot</span>
+            </button>
+          )}
+
           <button
             onClick={onOpenWhatIf}
-            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-cyan-500/20 via-indigo-500/20 to-purple-500/20 hover:from-cyan-500/30 hover:to-purple-500/30 text-cyan-200 border border-cyan-400/40 hover:border-cyan-300 transition-all shadow-md ring-1 ring-cyan-400/20"
+            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-cyan-500/20 via-indigo-500/20 to-purple-500/20 hover:from-cyan-500/30 hover:to-purple-500/30 text-cyan-200 border border-cyan-400/40 hover:border-cyan-300 transition-all shadow-md ring-1 ring-cyan-400/20"
           >
             <Bot className="w-4 h-4 text-cyan-300 animate-pulse" />
             <span>🧠 What-If Planner</span>
@@ -157,10 +196,11 @@ export const Header: React.FC<HeaderProps> = ({
 
           <button
             onClick={onOpenComparison}
-            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 hover:border-indigo-400 transition-all shadow-md"
+            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 hover:border-indigo-400 transition-all shadow-md"
           >
             <BarChart2 className="w-4 h-4 text-indigo-400" />
-            <span>Baseline vs GridMind</span>
+            <span className="hidden md:inline">Baseline vs GridMind</span>
+            <span className="md:hidden">Compare</span>
           </button>
         </div>
       </div>

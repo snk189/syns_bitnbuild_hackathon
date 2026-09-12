@@ -8,3 +8,4 @@ scikit-learn>=1.6.0
 websockets>=14.0
 httpx>=0.28.0
 python-dotenv>=1.0.0
+openai>=1.40.0

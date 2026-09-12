@@ -1,14 +1,15 @@
 "use client";
 
 import React, { useState } from "react";
-import { FileText, Wrench, Shield, CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
+import { FileText, Wrench, Shield, CheckCircle2, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import { AgentDecisionLog } from "../types";
 
 interface AgentDecisionAuditProps {
   decisions: AgentDecisionLog[];
+  onExplainDecision?: (decision: AgentDecisionLog) => void;
 }
 
-export const AgentDecisionAudit: React.FC<AgentDecisionAuditProps> = ({ decisions }) => {
+export const AgentDecisionAudit: React.FC<AgentDecisionAuditProps> = ({ decisions, onExplainDecision }) => {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
   const toggleExpand = (idx: number) => {
@@ -96,6 +97,21 @@ export const AgentDecisionAudit: React.FC<AgentDecisionAuditProps> = ({ decision
                             {t}()
                           </span>
                         ))}
+                      </div>
+                    )}
+
+                    {onExplainDecision && (
+                      <div className="pt-2 flex justify-end">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onExplainDecision(log);
+                          }}
+                          className="flex items-center space-x-1 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 text-cyan-300 border border-cyan-500/40 hover:from-cyan-500/30 hover:to-indigo-500/30 transition-all shadow-sm"
+                        >
+                          <Sparkles className="w-3 h-3 text-cyan-400" />
+                          <span>✨ Explain Decision with AI Copilot</span>
+                        </button>
                       </div>
                     )}
                   </div>

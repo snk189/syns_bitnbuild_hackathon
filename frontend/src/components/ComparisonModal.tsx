@@ -12,6 +12,11 @@ import {
   Layers,
   ArrowRight,
   RefreshCw,
+  Sparkles,
+  Bot,
+  FileText,
+  Copy,
+  Check,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -26,7 +31,7 @@ import {
   AreaChart,
   Area,
 } from "recharts";
-import { ComparisonData } from "../types";
+import { ComparisonData, ExecutiveReportData } from "../types";
 
 interface ComparisonModalProps {
   isOpen: boolean;
@@ -41,7 +46,10 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
 }) => {
   const [data, setData] = useState<ComparisonData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"load" | "transformer" | "battery">("load");
+  const [activeTab, setActiveTab] = useState<"load" | "transformer" | "battery" | "ai_report">("load");
+  const [reportData, setReportData] = useState<ExecutiveReportData | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const fetchComparison = async () => {
     setLoading(true);
@@ -55,6 +63,21 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
       console.error("Failed to fetch comparison data", e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAIReport = async () => {
+    setReportLoading(true);
+    try {
+      const res = await fetch(`/api/llm/executive-summary?scenario=${scenario}`);
+      if (res.ok) {
+        const json = await res.json();
+        setReportData(json);
+      }
+    } catch (e) {
+      console.error("Failed to fetch AI executive summary", e);
+    } finally {
+      setReportLoading(false);
     }
   };
 
@@ -235,131 +258,199 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
               </table>
             </div>
 
-            {/* Chart Tab Selectors */}
-            <div className="flex items-center space-x-2 border-b border-slate-800 pb-2">
+            {/* Chart & AI Tab Selectors */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2 flex-wrap gap-2">
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setActiveTab("load")}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+                    activeTab === "load" ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30" : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  24-Hour Power Import Curve (kW)
+                </button>
+                <button
+                  onClick={() => setActiveTab("transformer")}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+                    activeTab === "transformer" ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30" : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  Transformer Loading & Violations (%)
+                </button>
+                <button
+                  onClick={() => setActiveTab("battery")}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+                    activeTab === "battery" ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30" : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  Battery SOC Profile (%)
+                </button>
+              </div>
+
               <button
-                onClick={() => setActiveTab("load")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors ${
-                  activeTab === "load" ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30" : "text-slate-400 hover:text-slate-200"
+                onClick={() => {
+                  setActiveTab("ai_report");
+                  if (!reportData) fetchAIReport();
+                }}
+                className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all shadow-md ${
+                  activeTab === "ai_report"
+                    ? "bg-gradient-to-r from-cyan-500 to-indigo-600 text-white shadow-cyan-500/20 ring-1 ring-cyan-400"
+                    : "bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-600/30"
                 }`}
               >
-                24-Hour Power Import Curve (kW)
-              </button>
-              <button
-                onClick={() => setActiveTab("transformer")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors ${
-                  activeTab === "transformer" ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30" : "text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                Transformer Loading & Violations (%)
-              </button>
-              <button
-                onClick={() => setActiveTab("battery")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors ${
-                  activeTab === "battery" ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30" : "text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                Battery SOC Profile (%)
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>🤖 AI Strategic Audit Report</span>
               </button>
             </div>
 
-            {/* Recharts Chart Visualization */}
-            <div className="h-[280px] w-full bg-slate-950/80 rounded-2xl p-3 border border-slate-800/80">
-              <ResponsiveContainer width="100%" height="100%">
-                {activeTab === "load" ? (
-                  <LineChart data={data.chart_data}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="time" stroke="#64748b" tick={{ fontSize: 10 }} />
-                    <YAxis stroke="#64748b" tick={{ fontSize: 10 }} unit=" kW" />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155", borderRadius: "12px", fontSize: "11px" }}
-                    />
-                    <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "6px" }} />
-                    <Line
-                      type="monotone"
-                      dataKey="baseline_grid_import_kw"
-                      name="Baseline Grid Import (Uncoordinated)"
-                      stroke="#f43f5e"
-                      strokeWidth={2}
-                      strokeDasharray="5 5"
-                      dot={false}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="gridmind_grid_import_kw"
-                      name="GridMind Grid Import (Multi-Agent)"
-                      stroke="#10b981"
-                      strokeWidth={2.5}
-                      dot={false}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="solar_generation_kw"
-                      name="Solar Generation"
-                      stroke="#f59e0b"
-                      strokeWidth={1.5}
-                      dot={false}
-                    />
-                  </LineChart>
-                ) : activeTab === "transformer" ? (
-                  <LineChart data={data.chart_data}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="time" stroke="#64748b" tick={{ fontSize: 10 }} />
-                    <YAxis stroke="#64748b" tick={{ fontSize: 10 }} unit="%" domain={[0, 120]} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155", borderRadius: "12px", fontSize: "11px" }}
-                    />
-                    <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "6px" }} />
-                    <ReferenceLine y={80} stroke="#f59e0b" strokeDasharray="3 3" label={{ value: "Warning Threshold (80%)", fill: "#f59e0b", fontSize: 10 }} />
-                    <ReferenceLine y={95} stroke="#f43f5e" strokeDasharray="3 3" label={{ value: "Critical Violation (95%)", fill: "#f43f5e", fontSize: 10 }} />
-                    <Line
-                      type="monotone"
-                      dataKey="baseline_transformer_load_pct"
-                      name="Baseline Transformer Load % (Causes Violations)"
-                      stroke="#f43f5e"
-                      strokeWidth={2.5}
-                      dot={false}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="gridmind_transformer_load_pct"
-                      name="GridMind Transformer Load % (Shaved & Safe)"
-                      stroke="#10b981"
-                      strokeWidth={2.5}
-                      dot={false}
-                    />
-                  </LineChart>
+            {/* Recharts Chart Visualization or AI Executive Report */}
+            {activeTab === "ai_report" ? (
+              <div className="bg-slate-950/90 rounded-2xl p-5 border border-indigo-500/30 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <div className="flex items-center space-x-2">
+                    <Bot className="w-5 h-5 text-cyan-400" />
+                    <h3 className="text-sm font-bold text-slate-100">
+                      Autonomous LLM Executive Benchmark Audit
+                    </h3>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
+                      GPT-4o Energy Architecture Engine
+                    </span>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={fetchAIReport}
+                      disabled={reportLoading}
+                      className="flex items-center space-x-1 text-xs px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${reportLoading ? "animate-spin" : ""}`} />
+                      <span>Regenerate</span>
+                    </button>
+                    {reportData?.executive_report && (
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(reportData.executive_report);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        }}
+                        className="flex items-center space-x-1 text-xs px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white"
+                      >
+                        {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{copied ? "Copied!" : "Copy Report"}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {reportLoading ? (
+                  <div className="py-12 flex flex-col items-center justify-center text-slate-400 space-y-2">
+                    <Sparkles className="w-8 h-8 text-cyan-400 animate-spin" />
+                    <span className="text-sm font-semibold">Generating multi-agent strategic audit with OpenAI...</span>
+                  </div>
                 ) : (
-                  <LineChart data={data.chart_data}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="time" stroke="#64748b" tick={{ fontSize: 10 }} />
-                    <YAxis stroke="#64748b" tick={{ fontSize: 10 }} unit="%" domain={[0, 100]} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155", borderRadius: "12px", fontSize: "11px" }}
-                    />
-                    <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "6px" }} />
-                    <ReferenceLine y={25} stroke="#f43f5e" strokeDasharray="3 3" label={{ value: "Min Reserve (25%)", fill: "#f43f5e", fontSize: 10 }} />
-                    <Line
-                      type="monotone"
-                      dataKey="baseline_battery_soc"
-                      name="Baseline Battery SOC"
-                      stroke="#94a3b8"
-                      strokeWidth={2}
-                      strokeDasharray="4 4"
-                      dot={false}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="gridmind_battery_soc"
-                      name="GridMind Battery SOC (Anticipatory Discharge)"
-                      stroke="#06b6d4"
-                      strokeWidth={2.5}
-                      dot={false}
-                    />
-                  </LineChart>
+                  <div className="text-xs text-slate-300 space-y-3 whitespace-pre-line leading-relaxed max-h-[360px] overflow-y-auto pr-2 font-mono bg-slate-900/40 p-4 rounded-xl border border-slate-800">
+                    {reportData?.executive_report || "Click Regenerate to analyze benchmark results."}
+                  </div>
                 )}
-              </ResponsiveContainer>
-            </div>
+              </div>
+            ) : (
+              <div className="h-[280px] w-full bg-slate-950/80 rounded-2xl p-3 border border-slate-800/80">
+                <ResponsiveContainer width="100%" height="100%">
+                  {activeTab === "load" ? (
+                    <LineChart data={data.chart_data}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="time" stroke="#64748b" tick={{ fontSize: 10 }} />
+                      <YAxis stroke="#64748b" tick={{ fontSize: 10 }} unit=" kW" />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155", borderRadius: "12px", fontSize: "11px" }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "6px" }} />
+                      <Line
+                        type="monotone"
+                        dataKey="baseline_grid_import_kw"
+                        name="Baseline Grid Import (Uncoordinated)"
+                        stroke="#f43f5e"
+                        strokeWidth={2}
+                        strokeDasharray="5 5"
+                        dot={false}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="gridmind_grid_import_kw"
+                        name="GridMind Grid Import (Multi-Agent)"
+                        stroke="#10b981"
+                        strokeWidth={2.5}
+                        dot={false}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="solar_generation_kw"
+                        name="Solar Generation"
+                        stroke="#f59e0b"
+                        strokeWidth={1.5}
+                        dot={false}
+                      />
+                    </LineChart>
+                  ) : activeTab === "transformer" ? (
+                    <LineChart data={data.chart_data}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="time" stroke="#64748b" tick={{ fontSize: 10 }} />
+                      <YAxis stroke="#64748b" tick={{ fontSize: 10 }} unit="%" domain={[0, 120]} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155", borderRadius: "12px", fontSize: "11px" }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "6px" }} />
+                      <ReferenceLine y={80} stroke="#f59e0b" strokeDasharray="3 3" label={{ value: "Warning Threshold (80%)", fill: "#f59e0b", fontSize: 10 }} />
+                      <ReferenceLine y={95} stroke="#f43f5e" strokeDasharray="3 3" label={{ value: "Critical Violation (95%)", fill: "#f43f5e", fontSize: 10 }} />
+                      <Line
+                        type="monotone"
+                        dataKey="baseline_transformer_load_pct"
+                        name="Baseline Transformer Load % (Causes Violations)"
+                        stroke="#f43f5e"
+                        strokeWidth={2.5}
+                        dot={false}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="gridmind_transformer_load_pct"
+                        name="GridMind Transformer Load % (Shaved & Safe)"
+                        stroke="#10b981"
+                        strokeWidth={2.5}
+                        dot={false}
+                      />
+                    </LineChart>
+                  ) : (
+                    <LineChart data={data.chart_data}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="time" stroke="#64748b" tick={{ fontSize: 10 }} />
+                      <YAxis stroke="#64748b" tick={{ fontSize: 10 }} unit="%" domain={[0, 100]} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155", borderRadius: "12px", fontSize: "11px" }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "6px" }} />
+                      <ReferenceLine y={25} stroke="#f43f5e" strokeDasharray="3 3" label={{ value: "Min Reserve (25%)", fill: "#f43f5e", fontSize: 10 }} />
+                      <Line
+                        type="monotone"
+                        dataKey="baseline_battery_soc"
+                        name="Baseline Battery SOC"
+                        stroke="#94a3b8"
+                        strokeWidth={2}
+                        strokeDasharray="4 4"
+                        dot={false}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="gridmind_battery_soc"
+                        name="GridMind Battery SOC (Anticipatory Discharge)"
+                        stroke="#06b6d4"
+                        strokeWidth={2.5}
+                        dot={false}
+                      />
+                    </LineChart>
+                  )}
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
         )}
       </div>

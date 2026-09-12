@@ -3,6 +3,7 @@ import os
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from .api.routes import router, websocket_endpoint
+from .api.llm_routes import router as llm_router
 
 app = FastAPI(
     title="GRIDMIND API",
@@ -20,6 +21,7 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(llm_router)
 
 @app.websocket("/ws")
 async def websocket_ws(websocket: WebSocket):
