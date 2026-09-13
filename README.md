@@ -177,7 +177,7 @@ All metrics are calculated directly from the deterministic microgrid physics sim
 
 ## 🤖 The Autonomous Agents
 
-1. **Forecast Agent**: Uses scikit-learn multi-horizon regression models (+15m, +30m, +60m) to predict solar generation drops and residential consumption surges.
+1. **Forecast Agent**: Uses a production-grade machine learning engine (`HistGradientBoostingRegressor`) trained on multi-day synthetic data to predict solar generation drops and residential consumption surges across +15m, +30m, and +60m horizons. It utilizes multi-lag feature engineering and computes calibrated 95% confidence intervals ($\pm 1.96\sigma$) to provide uncertainty quantification.
 2. **Grid Health Agent**: Monitors transformer loading, voltage (pu), and frequency (Hz). Classifies state into `NORMAL`, `WARNING`, and `CRITICAL`.
 3. **Solar Producer Agent**: Evaluates local self-consumption vs market tariffs and issues dynamic surplus sell bids to the P2P exchange.
 4. **Central Battery Agent**: Guards reserve limits, absorbs cheap midday solar surplus, and dispatches stored energy to shave transformer peaks.
